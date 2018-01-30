@@ -3,6 +3,6 @@
 - ittt maybe
 - providing trust that sensor is a sensor original
 - ledger to provide security against DOS atack, to keep history who asked to read data
-- check if there is a way to repurpose existing protocols, mqtt, amqp, coap, web socket,
-- word cloud, find most important things, search on google
-- jabref
+- check if there is a way to repurpose existing protocols, mqtt, amqp, coap, web socket, (I've found IPFS and several blockchains..)
+- word cloud, find most important things, search on google - I created script that extract words from PDF then it could be used to generate word clud online.
+- jabref - I decided to use Zotero (jabref did not work)
