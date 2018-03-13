@@ -1,0 +1,62 @@
+\chapter{Requirements\label{chap:requirements}}
+\quad The application's functional and nonfunctional requirements are specified in the following chapter. Both of them are sorted based on priority. The requirements with highest priority are listed first.
+
+\section{Functional Requirements}
+\textbf{FR} -> functional requirement  \newline
+These are the functional requirements:
+
+\begin{itemize}
+\item \textbf{FR1 ->} The solution will be fully decentralised peer-to-peer network with different options of connectivity, including Internet, Wi-Fi, Ethernet, etc.
+\item \textbf{FR2 ->} The nodes should be able to exchange data without a centralised authority in a safe, secure and confidential manner and in an accountable fashion.
+\item \textbf{FR3 ->} The solution should record every transaction between nodes.
+\item \textbf{FR4 ->} There will be provisions for two nodes to pair up adequately based on multiple parameters. For example freshness of the data, bandwidth, latency, etc.
+\item \textbf{FR5 ->} The node should be able to publish what data it can provide.
+\end{itemize}
+\vspace{\baselineskip}
+
+OLD LIST:
+\begin{enumerate}
+\item The application will be utilising fully distributed peer-to-peer network architecture.
+\item The application will be able to function without connection to the Internet on a local network.
+\item The nodes will be able to confidentially exchange (paid or not) data.
+\item If the created P2P network is private then the owner of the network will have total control. ( over it despite it utilises peer-to-peer architecture.)
+\item Upon the first launch of the application, it will try to find local nodes to bootstrap.
+\item The application will try to connect to predefined trusted nodes (in case of available connection to the Internet) to bootstrap.
+\item The node should prefer to download the same piece of data from physically closer nodes (be aware of physical distance).
+\item The application should keep track of every transaction of data between nodes.
+\item The user should be able to see node ID.
+\item The user should be able to see (list) connected nodes.
+\item The user should be able to see what data can nodes provide.
+\item The user should be able to specify if a node can publish information what data can provide.
+\item The user should access major functionality through web user interface.
+\item The node should be able to prove that requested data were exchanged. (but still remain confidential)
+\end{enumerate}
+
+\vspace{\baselineskip}
+
+\section{Non-Functional Requirements}
+\textbf{NFR} -> nonfunctional requirement  \newline
+These are the nonfunctional requirements:
+
+\begin{itemize}
+\item \textbf{NFR1 ->} The solution will be scalable.
+\item \textbf{NFR2 ->} The solution will be robust. To be more specific, it will not fail as a result of individual components failing.
+\item \textbf{NFR3 ->} The solution will be resistant to a number of attacks. For example Sybil, Eclipse, Churn and DDoS attack.
+\end{itemize}
+\vspace{\baselineskip}
+
+OLD LIST:
+\begin{enumerate}
+\item The application will be scalable from single node up to \(10^8\) nodes.
+\item The application will be robust.
+\item The application will be reliable.
+\item The application will be Byzantine fault tolerant.
+\item The application will be will be resistant to Sybil attack.
+\item The application will be will be resistant to Eclipse attack.
+\item The application will be resistant to Churn attack.
+\item The application will be resistant to Distributed Denial of Service (DDoS) attack.
+\item The application will be resistant to Attacks on data storage.
+\item The node should be able to exchange data fast.
+\end{enumerate}
+
+\vspace{\baselineskip}
