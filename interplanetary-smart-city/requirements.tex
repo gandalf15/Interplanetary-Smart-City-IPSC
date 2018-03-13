@@ -1,62 +1,99 @@
+%The storyline here should be: the goal of the project is X; to achieve this goal we need FR1-5; each FR needs to be justified wrt the goal. Moreover, you need to explicitly state why you don't need more FRs. 
+
 \chapter{Requirements\label{chap:requirements}}
-\quad The application's functional and nonfunctional requirements are specified in the following chapter. Both of them are sorted based on priority. The requirements with highest priority are listed first.
+The application's functional and nonfunctional requirements are specified and justified in this chapter. Both of them are sorted based on priority. The requirements with the highest priority are listed first.
 
 \section{Functional Requirements}
-\textbf{FR} -> functional requirement  \newline
-These are the functional requirements:
+\quad The goal of this project is to provide decentralised, secure, robust and physical distance aware solution for IoT devices in an interplanetary smart city. The solution has to provide easy means for trade with the data collection among untrusted parties. To achieve this goal, I need functional requirements from FR1 to FR5.
 
 \begin{itemize}
-\item \textbf{FR1 ->} The solution will be fully decentralised peer-to-peer network with different options of connectivity, including Internet, Wi-Fi, Ethernet, etc.
-\item \textbf{FR2 ->} The nodes should be able to exchange data without a centralised authority in a safe, secure and confidential manner and in an accountable fashion.
-\item \textbf{FR3 ->} The solution should record every transaction between nodes.
-\item \textbf{FR4 ->} There will be provisions for two nodes to pair up adequately based on multiple parameters. For example freshness of the data, bandwidth, latency, etc.
-\item \textbf{FR5 ->} The node should be able to publish what data it can provide.
+\item \textbf{FR1 The solution will be fully decentralised peer-to-peer network with different options of connectivity, including Internet, Wi-Fi, Ethernet, etc.}
+\label{FR1}
+
+\quad In order to create a solution that does not have a central point of failure, it has to utilize a decentralised peer-to-peer network. Furthermore, this addresses the goal for robustness and physical distance awareness. The solution should not depend on specific connectivity technology because it would introduce limitation for future interplanetary cities. 
+
+\item \textbf{FR2 The nodes should be able to exchange data without a centralised authority in a safe, secure and confidential manner and in an accountable fashion.}
+\label{FR2}
+
+\quad Since IoT data can consist of sensitive data or simply the data hold a certain value, the parties must be able to exchange the data in a safe, secure and confidential manner. Accountability of the mechanism will be a crucial part in the case of a dispute about a transaction among parties. These things should be achieved with the trust in cryptography rather than traditional third party. This requirement is also necessary to achieve the goal of providing easy means for trade with data collections.
+
+\item \textbf{FR3 The solution should record every transaction between nodes.}
+\label{FR3}
+
+\quad In order to achieve data exchange in an accountable fashion. The solution has to record every transaction as a tamper-proof log. This log will serve as a proof for involved parties. This requirement is necessary in order to provide easy means for trade among untrusted parties.
+
+\item \textbf{FR4 There will be provisions for two nodes to pair up adequately based on multiple parameters. For example freshness of the data, bandwidth, latency, etc.}
+\label{FR4}
+
+\quad Multiple data parameters can play a vital role in the decision which provider (node) serves better, more suitable, data for a specific use. In some cases, the frequency of data is more critical then accuracy, in others reliability plays the most crucial role. Therefore, the solution has to provide the possibility to pair nodes adequately.
+
+\item \textbf{FR5 The node should be able to publish what data it can provide.}
+\label{FR5}
+
+\quad To provide an environment for data exchange, there has to be a way to get a list of available data and their parameters.
+
 \end{itemize}
-\vspace{\baselineskip}
 
-OLD LIST:
-\begin{enumerate}
-\item The application will be utilising fully distributed peer-to-peer network architecture.
-\item The application will be able to function without connection to the Internet on a local network.
-\item The nodes will be able to confidentially exchange (paid or not) data.
-\item If the created P2P network is private then the owner of the network will have total control. ( over it despite it utilises peer-to-peer architecture.)
-\item Upon the first launch of the application, it will try to find local nodes to bootstrap.
-\item The application will try to connect to predefined trusted nodes (in case of available connection to the Internet) to bootstrap.
-\item The node should prefer to download the same piece of data from physically closer nodes (be aware of physical distance).
-\item The application should keep track of every transaction of data between nodes.
-\item The user should be able to see node ID.
-\item The user should be able to see (list) connected nodes.
-\item The user should be able to see what data can nodes provide.
-\item The user should be able to specify if a node can publish information what data can provide.
-\item The user should access major functionality through web user interface.
-\item The node should be able to prove that requested data were exchanged. (but still remain confidential)
-\end{enumerate}
+Due to the nature of this research topic, the above functional requirements (FR1 - FR5) are sufficient for reaching the stated goal. The reason is that this is an open-ended cutting-edge research topic and very detailed functional requirements would limit exploration possibilities.
 
-\vspace{\baselineskip}
+% * <marcel.zak13@gmail.com> 2018-03-11T15:15:24.880Z:
+% 
+% > OLD LIST:
+% > \begin{enumerate}
+% > \item The application will be utilising fully distributed peer-to-peer network architecture.
+% > \item The application will be able to function without connection to the Internet on a local network.
+% > \item The nodes will be able to confidentially exchange (paid or not) data.
+% > \item If the created P2P network is private then the owner of the network will have total control. ( over it despite it utilises peer-to-peer architecture.)
+% > \item Upon the first launch of the application, it will try to find local nodes to bootstrap.
+% > \item The application will try to connect to predefined trusted nodes (in case of available connection to the Internet) to bootstrap.
+% > \item The node should prefer to download the same piece of data from physically closer nodes (be aware of physical distance).
+% > \item The application should keep track of every transaction of data between nodes.
+% > \item The user should be able to see node ID.
+% > \item The user should be able to see (list) connected nodes.
+% > \item The user should be able to see what data can nodes provide.
+% > \item The user should be able to specify if a node can publish information what data can provide.
+% > \item The user should access major functionality through web user interface.
+% > \item The node should be able to prove that requested data were exchanged. (but still remain confidential)
+% > \end{enumerate}
+% 
+% ^.
 
 \section{Non-Functional Requirements}
-\textbf{NFR} -> nonfunctional requirement  \newline
-These are the nonfunctional requirements:
+%Normally we also establish that all technologies used should be free
+\quad I list and justify non-functional requirements (NFR1-3) here:
 
 \begin{itemize}
-\item \textbf{NFR1 ->} The solution will be scalable.
-\item \textbf{NFR2 ->} The solution will be robust. To be more specific, it will not fail as a result of individual components failing.
-\item \textbf{NFR3 ->} The solution will be resistant to a number of attacks. For example Sybil, Eclipse, Churn and DDoS attack.
+\item \textbf{NFR1 The solution will be scalable.}
+\label{NFR1}
+
+\quad The environment and size of interplanetary smart cities can vary. For this reason, it is essential that the solution can cope with it. Moreover, the solution should be suitable for use in smart houses and interplanetary cities. Therefore, the solution has to be scalable.
+
+\item \textbf{NFR2 The solution will be robust. To be more specific, it will not fail as a result of individual components failing.}
+\label{NFR2}
+
+\quad To address the problem of central point of failure, the solution has to be able to continue working even if individual components fail. This improves the robustness of the whole system.
+
+\item \textbf{NFR3 The solution will be resistant to a number of attacks. For example Sybil, Churn and DoS attack.}
+\label{NFR3}
+
+\quad In order to address the possible threats in smart cities, the solution must be resistant to multiple attacks that are common in P2P networks and IoT infrastructure.
+
 \end{itemize}
-\vspace{\baselineskip}
 
-OLD LIST:
-\begin{enumerate}
-\item The application will be scalable from single node up to \(10^8\) nodes.
-\item The application will be robust.
-\item The application will be reliable.
-\item The application will be Byzantine fault tolerant.
-\item The application will be will be resistant to Sybil attack.
-\item The application will be will be resistant to Eclipse attack.
-\item The application will be resistant to Churn attack.
-\item The application will be resistant to Distributed Denial of Service (DDoS) attack.
-\item The application will be resistant to Attacks on data storage.
-\item The node should be able to exchange data fast.
-\end{enumerate}
-
-\vspace{\baselineskip}
+% * <marcel.zak13@gmail.com> 2018-03-11T15:15:55.375Z:
+%
+% > OLD LIST:
+% > \begin{enumerate}
+% > \item The application will be scalable from single node up to \(10^8\) nodes.
+% > \item The application will be robust.
+% > \item The application will be reliable.
+% > \item The application will be Byzantine fault tolerant.
+% > \item The application will be will be resistant to Sybil attack.
+% > \item The application will be will be resistant to Eclipse attack.
+% > \item The application will be resistant to Churn attack.
+% > \item The application will be resistant to Distributed Denial of Service (DDoS) attack.
+% > \item The application will be resistant to Attacks on data storage.
+% > \item The node should be able to exchange data fast.
+% > \end{enumerate}
+%
+% ^.
