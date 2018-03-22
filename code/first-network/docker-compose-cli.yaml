@@ -1,0 +1,92 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+volumes:
+  orderer.zak.codes:
+  peer0.city1.zak.codes:
+  peer1.city1.zak.codes:
+  peer0.city2.zak.codes:
+  peer1.city2.zak.codes:
+
+networks:
+  ipsc:
+
+services:
+
+  orderer.zak.codes:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.zak.codes
+    container_name: orderer.zak.codes
+    networks:
+      - ipsc
+
+  peer0.city1.zak.codes:
+    container_name: peer0.city1.zak.codes
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.city1.zak.codes
+    networks:
+      - ipsc
+
+  peer1.city1.zak.codes:
+    container_name: peer1.city1.zak.codes
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.city1.zak.codes
+    networks:
+      - ipsc
+
+  peer0.city2.zak.codes:
+    container_name: peer0.city2.zak.codes
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.city2.zak.codes
+    networks:
+      - ipsc
+
+  peer1.city2.zak.codes:
+    container_name: peer1.city2.zak.codes
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.city2.zak.codes
+    networks:
+      - ipsc
+
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:$IMAGE_TAG
+    tty: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.city1.zak.codes:7051
+      - CORE_PEER_LOCALMSPID=City1MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/peers/peer0.city1.zak.codes/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/peers/peer0.city1.zak.codes/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/peers/peer0.city1.zak.codes/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/users/Admin@city1.zak.codes/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    # command: /bin/bash -c './scripts/script.sh ${CHANNEL_NAME} ${DELAY}; sleep $TIMEOUT'
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./../chaincode/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.zak.codes
+      - peer0.city1.zak.codes
+      - peer1.city1.zak.codes
+      - peer0.city2.zak.codes
+      - peer1.city2.zak.codes
+    networks:
+      - ipsc
+
