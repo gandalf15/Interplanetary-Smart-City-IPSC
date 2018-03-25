@@ -75,8 +75,10 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/users/Admin@city1.zak.codes/msp
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     # command: /bin/bash -c './scripts/script.sh ${CHANNEL_NAME} ${DELAY}; sleep $TIMEOUT'
+    # command: /bin/bash -c './scripts/3channels_cli_commands.sh'
     volumes:
         - /var/run/:/host/var/run/
+        # - ~/fabric/fabric-samples/chaincode:/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
         - ./../chaincode/:/opt/gopath/src/github.com/hyperledger/fabric/chaincode
         - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
         - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
