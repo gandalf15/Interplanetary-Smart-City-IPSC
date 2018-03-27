@@ -10,8 +10,8 @@ import (
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
 
-// SimpleChaincode implements Chaincode interface
-type SimpleChaincode struct {
+// Chaincode implements Chaincode interface
+type Chaincode struct {
 }
 
 // Variable names in a struct must be capitalised. Otherwise they are not exported (also to JSON)
@@ -32,7 +32,7 @@ type DataEntry struct {
 func main() {
 	// increase max CPU
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	err := shim.Start(new(SimpleChaincode))
+	err := shim.Start(new(Chaincode))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
@@ -41,24 +41,24 @@ func main() {
 // ===========================
 // Init initializes chaincode
 // ===========================
-func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(nil)
 }
 
 // ========================================
 // Invoke - Our entry point for Invocations
 // ========================================
-func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	function, args := stub.GetFunctionAndParameters()
 	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
 	if function == "putDataEntry" { //create a new data entry
-		return t.putDataEntry(stub, args)
+		return cc.putDataEntry(stub, args)
 	} else if function == "getDataEntryById" { //read specific data by DataEntryId
-		return t.getDataEntryById(stub, args)
+		return cc.getDataEntryById(stub, args)
 	} else if function == "queryDataEntryByPublisher" { //find data created by publisher using rich query
-		return t.queryDataEntryByPublisher(stub, args)
+		return cc.queryDataEntryByPublisher(stub, args)
 	}
 
 	fmt.Println("invoke did not find func: " + function) //error
@@ -68,7 +68,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 // ===================================================================
 // putDataEntry - create a new data entry, store into chaincode state
 // ===================================================================
-func (t *SimpleChaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 
 	//        0           1             2        3           4             5
@@ -99,8 +99,8 @@ func (t *SimpleChaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []
 	}
 
 	dataEntryId := args[0]
-	description := strings.ToLower(args[1])
-	value := strings.ToLower(args[2])
+	description := args[1]
+	value := args[2]
 	unit := strings.ToLower(args[3])
 	creationTime := strings.ToLower(args[4])
 	publisher := strings.ToLower(args[5])
@@ -149,7 +149,7 @@ func (t *SimpleChaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []
 // ====================================================================
 // getDataEntryById - read data entry from chaincode state based its Id
 // ====================================================================
-func (t *SimpleChaincode) getDataEntryById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) getDataEntryById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var jsonResp string
 	var err error
 
@@ -173,7 +173,7 @@ func (t *SimpleChaincode) getDataEntryById(stub shim.ChaincodeStubInterface, arg
 // ===============================================
 // queryDataEntryByPublisher - query data entry from chaincode state by publisher
 // ===============================================
-func (t *SimpleChaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 
 	if len(args) != 1 {
@@ -208,7 +208,7 @@ func (t *SimpleChaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInter
 		returnedDataEntryId := compositeKeyParts[1]
 		fmt.Printf("- found a data entry from index:%s Publisher:%s DataEntryId:%s\n", objectType, returnedPublisher, returnedDataEntryId)
 
-		response := t.getDataEntryById(stub, []string{returnedDataEntryId})
+		response := cc.getDataEntryById(stub, []string{returnedDataEntryId})
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of data entry failed: " + response.Message)
 		}

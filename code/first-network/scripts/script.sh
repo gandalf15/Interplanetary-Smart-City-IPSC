@@ -12,7 +12,7 @@ echo
 CHANNEL_NAME_BASE="$1"
 DELAY="$2"
 : ${CHANNEL_NAME_BASE:="channel"}
-: ${DELAY:=1}
+: ${DELAY:=0}
 : ${TIMEOUT:="2"}
 COUNTER=1
 MAX_RETRY=5
@@ -121,7 +121,7 @@ installChaincode () {
 	CC_NAME=$2
 	PATH_TO_CC=$3
 	setGlobals $PEER
-	peer chaincode install -n ${CC_NAME} -v 1.0 -p ${PATH_TO_CC} >&log.txt
+	peer chaincode install -n $CC_NAME -v 1.0 -p $PATH_TO_CC >&log.txt
 	res=$?
 	cat log.txt
         verifyResult $res "Chaincode installation on remote peer PEER$PEER has Failed"
@@ -132,16 +132,16 @@ installChaincode () {
 instantiateChaincode () {
 	PEER=$1
 	CC_NAME=$2
-	PAYLOAD=$3
-	POLICY=$4
+	# PP=$3	# policy and payload code for channel number
 	setGlobals $PEER
+	echo $PP
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-		peer chaincode instantiate -o orderer.zak.codes:7050 -C $CHANNEL_NAME -n $CC_NAME -v 1.0 -c "$PAYLOAD" -P "$POLICY" >&log.txt
+		peer chaincode instantiate -o orderer.zak.codes:7050 -C $CHANNEL_NAME -n $CC_NAME -v 1.0 -c "${PAYLOAD}" -P "${POLICY}" >&log.txt
 	else
-		peer chaincode instantiate -o orderer.zak.codes:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n $CC_NAME -v 1.0 -c '{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}' -P "OR ('City1MSP.member','City2MSP.member')" >&log.txt
+		peer chaincode instantiate -o orderer.zak.codes:7050 --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n $CC_NAME -v 1.0 -c "${PAYLOAD}" -P "${POLICY}" >&log.txt
 	fi
 	res=$?
 	cat log.txt
@@ -153,7 +153,6 @@ instantiateChaincode () {
 chaincodeQuery () {
   PEER=$1
   CC_NAME=$2
-  PAYLOAD=$3
   EXPECTED_VALUE=$4
   echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' ... ===================== "
   setGlobals $PEER
@@ -166,9 +165,9 @@ chaincodeQuery () {
   do
      sleep $DELAY
      echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
-     peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c $PAYLOAD >&log.txt
+     peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
      test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
-     test "$VALUE" = "$4" && let rc=0
+     test "$VALUE" = "${EXPECTED_VALUE}" && let rc=0
   done
   echo
   cat log.txt
@@ -185,14 +184,13 @@ chaincodeQuery () {
 chaincodeInvoke () {
 	PEER=$1
 	CC_NAME=$2
-	PAYLOAD=$3
 	setGlobals $PEER
 	# while 'peer chaincode' command can get the orderer endpoint from the peer (if join was successful),
 	# lets supply it directly as we know it using the "-o" option
 	if [ -z "$CORE_PEER_TLS_ENABLED" -o "$CORE_PEER_TLS_ENABLED" = "false" ]; then
-		peer chaincode invoke -o orderer.zak.codes:7050 -C $CHANNEL_NAME -n $CC_NAME -c $PAYLOAD >&log.txt
+		peer chaincode invoke -o orderer.zak.codes:7050 -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
 	else
-		peer chaincode invoke -o orderer.zak.codes:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n $CC_NAME -c $PAYLOAD >&log.txt
+		peer chaincode invoke -o orderer.zak.codes:7050  --tls $CORE_PEER_TLS_ENABLED --cafile $ORDERER_CA -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
 	fi
 	res=$?
 	cat log.txt
@@ -239,24 +237,73 @@ for i in 2 3; do
 done
 
 ## Install chaincode on Peer0/City1 and Peer2/City2
-echo "Installing chaincode on Peer0/City1..."
-installChaincode 0 "simple_chaincode" github.com/hyperledger/fabric/chaincode/simple_chaincode
-echo "Install chaincode on Peer2/City2..."
-installChaincode 2 "simple_chaincode" github.com/hyperledger/fabric/chaincode/simple_chaincode
+echo "Installing simple_chaincode on Peer0/City1..."
+installChaincode 0 simple_chaincode github.com/hyperledger/fabric/chaincode/simple_chaincode
 
-#Instantiate chaincode on Peer2/Org2
-echo "Instantiating chaincode on org2/peer2..."
-PAYLOAD=''\'{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}\'''
-POLICY="\"OR ('City1MSP.member','City2MSP.member')\""
-instantiateChaincode 2 "simple_chaincode" $PAYLOAD $POLICY
+echo "Installing simple_chaincode on Peer1/City1..."
+installChaincode 1 simple_chaincode github.com/hyperledger/fabric/chaincode/simple_chaincode
+
+echo "Installing chaincode2 on Peer0/City1..."
+installChaincode 0 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
+echo "Install chaincode2 on Peer1/City1..."
+installChaincode 1 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
+echo "Install chaincode2 on Peer2/City2..."
+installChaincode 2 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
+echo "Install chaincode2 on Peer3/City2..."
+installChaincode 3 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
+
+echo "Installing chaincode_money on Peer0/City1..."
+installChaincode 0 chaincode_money github.com/hyperledger/fabric/chaincode/chaincode_money
+echo "Install chaincode_money on Peer1/City1..."
+installChaincode 1 chaincode_money github.com/hyperledger/fabric/chaincode/chaincode_money
+echo "Installing chaincode_money on Peer2/City2..."
+installChaincode 2 chaincode_money github.com/hyperledger/fabric/chaincode/chaincode_money
+echo "Install chaincode_money on Peer3/City2..."
+installChaincode 3 chaincode_money github.com/hyperledger/fabric/chaincode/chaincode_money
+
+#Instantiate chaincode on Peer0/City1
+echo "Instantiating simple_chaincode on Peer0/City1..."
+CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
+PAYLOAD='{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}'
+POLICY="AND ('City1MSP.member')"
+instantiateChaincode 0 simple_chaincode
+
+echo "Instantiating chaincode2 on Peer2/City2..."
+CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
+PAYLOAD='{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}'
+POLICY="OR ('City1MSP.member','City2MSP.member')"
+instantiateChaincode 2 chaincode2
+
+echo "Instantiating chaincode_money on Peer2/City2..."
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}'
+POLICY="OR ('City1MSP.member','City2MSP.member')"
+instantiateChaincode 2 chaincode_money
+
+# Invoke on chaincode on Peer0/City1
+echo "Sending invoke transaction on City1/peer0 on simple_chaincode ..."
+sleep 2
+CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
+PAYLOAD='{"Args":["putDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}'
+chaincodeInvoke 0 simple_chaincode
+
+# Invoke on chaincode on Peer2/City2
+echo "Sending invoke transaction on Peer2/City2 on chaincode2 ..."
+sleep 2
+CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
+PAYLOAD='{"Args":["putDataEntry", "1", "test data", "???", "???", "20180321163750", "marcel"]}'
+chaincodeInvoke 0 chaincode2
+
+# Invoke on chaincode on Peer2/City2
+echo "Sending invoke transaction on Peer2/City2 on chaincode2 revealDataValue"
+sleep 2
+CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
+PAYLOAD='{"Args":["revealDataValue", "simple_chaincode", "1", "channel1"]}'
+chaincodeInvoke 0 chaincode2
 
 #Query on chaincode on Peer0/Org1
 # echo "Querying chaincode on org1/peer0..."
 # chaincodeQuery 0 100
-
-#Invoke on chaincode on Peer0/Org1
-# echo "Sending invoke transaction on org1/peer0..."
-# chaincodeInvoke 0
 
 ## Install chaincode on Peer3/Org2
 # echo "Installing chaincode on org2/peer3..."
