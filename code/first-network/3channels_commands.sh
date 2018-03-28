@@ -1,11 +1,25 @@
 #!/bin/bash
 
+verifyResult () {
+	if [ $1 -ne 0 ] ; then
+		echo "!!!!!!!!!!!!!!! "$2" !!!!!!!!!!!!!!!!"
+    echo "========= ERROR !!! FAILED to execute End-2-End Scenario ==========="
+		echo
+   		exit 1
+	fi
+}
 echo "====== Recompiling chaincodes for channels ======"
 go build --tags nopkcs11 ../chaincode/simple_chaincode/
+res=$?
+verifyResult $res "simple_chaincode compilation failed"
 echo "====== simple_chaincode recompiled ======"
 go build --tags nopkcs11 ../chaincode/chaincode2/
+res=$?
+verifyResult $res "chaincode2 compilation failed"
 echo "====== chaincode2 recompiled ======"
-go build --tags nopkcs11 ../chaincode/chaincode_money/
+go build --tags nopkcs11 ../chaincode/chaincode_tokens/
+res=$?
+verifyResult $res "chaincode_tokens compilation failed"
 echo "====== chaincode_money recompiled ======"
 
 /home/marcel/fabric/bin/cryptogen generate --config=./crypto-config.yaml

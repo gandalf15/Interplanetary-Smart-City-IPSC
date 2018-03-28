@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"runtime"
-	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -26,51 +25,49 @@ type DataEntry struct {
 	Publisher    string // publisher of the data
 }
 
-// ===================================================================================
+//////////
 // Main
-// ===================================================================================
+//////////
 func main() {
 	// increase max CPU
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	err := shim.Start(new(Chaincode))
 	if err != nil {
-		fmt.Printf("Error starting Simple chaincode: %s", err)
+		shim.Error(err.Error())
 	}
 }
 
-// ===========================
+//////////////////////////////
 // Init initializes chaincode
-// ===========================
+//////////////////////////////
 func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(nil)
 }
 
-// ========================================
+////////////////////////////////////////////
 // Invoke - Our entry point for Invocations
-// ========================================
+////////////////////////////////////////////
 func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	function, args := stub.GetFunctionAndParameters()
-	fmt.Println("invoke is running " + function)
 
-	// Handle different functions
-	if function == "putDataEntry" { //create a new data entry
-		return cc.putDataEntry(stub, args)
+	// Handle functions
+	if function == "createDataEntry" { //create a new data entry
+		return cc.createDataEntry(stub, args)
 	} else if function == "getDataEntryById" { //read specific data by DataEntryId
 		return cc.getDataEntryById(stub, args)
-	} else if function == "queryDataEntryByPublisher" { //find data created by publisher using rich query
+	} else if function == "queryDataEntryByPublisher" { //find data created by publisher using compound key
 		return cc.queryDataEntryByPublisher(stub, args)
-	} else if function == "revealDataValue" { //find data created by publisher using rich query
+	} else if function == "revealDataValue" { // invoke other chaincode and reveal values
 		return cc.revealDataValue(stub, args)
 	}
 
-	fmt.Println("invoke did not find func: " + function) //error
 	return shim.Error("Received unknown function invocation")
 }
 
-// ===================================================================
-// putDataEntry - create a new data entry, store into chaincode state
-// ===================================================================
-func (cc *Chaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+/////////////////////////////////////////////////////////////////////////
+// createDataEntry - create a new data entry, store into chaincode state
+/////////////////////////////////////////////////////////////////////////
+func (cc *Chaincode) createDataEntry(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 
 	//        0           1             2        3           4             5
@@ -79,8 +76,7 @@ func (cc *Chaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []strin
 		return shim.Error("Incorrect number of arguments. Expecting 6")
 	}
 
-	// ==== Input sanitation ====
-	fmt.Println("- start create user")
+	// Input sanitation
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -103,20 +99,19 @@ func (cc *Chaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []strin
 	dataEntryId := args[0]
 	description := args[1]
 	value := args[2]
-	unit := strings.ToLower(args[3])
-	creationTime := strings.ToLower(args[4])
-	publisher := strings.ToLower(args[5])
+	unit := args[3]
+	creationTime := args[4]
+	publisher := args[5]
 
 	// ==== Check if data entry already exists ====
 	dataEntryAsBytes, err := stub.GetState(dataEntryId)
 	if err != nil {
 		return shim.Error("Failed to get data entry: " + err.Error())
 	} else if dataEntryAsBytes != nil {
-		fmt.Println("This data entry already exists: " + dataEntryId)
 		return shim.Error("This data entry already exists: " + dataEntryId)
 	}
 
-	// ==== Create data entry object and marshal to JSON ====
+	// Create data entry object and marshal to JSON
 	recordType := "DATA_ENTRY"
 	dataEntry := &DataEntry{recordType, dataEntryId, description, value, unit, creationTime, publisher}
 	dataEntryJSONasBytes, err := json.Marshal(dataEntry)
@@ -124,35 +119,33 @@ func (cc *Chaincode) putDataEntry(stub shim.ChaincodeStubInterface, args []strin
 		return shim.Error(err.Error())
 	}
 
-	// === Save data entry to state ===
+	// Save data entry to state
 	err = stub.PutState(dataEntryId, dataEntryJSONasBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	//  ==== Index the data to enable publisher-based range queries ====
-	//  An 'index' is a normal key/value entry in state.
-	//  The key is a composite key, with the elements that you want to range query on listed first.
+	// Index the data to enable publisher-based range queries
+	// An 'index' is a normal key/value entry in state.
+	// The key is a composite key, with the elements that you want to range query on listed first.
 	indexName := "Publisher~DataEntryId"
 	pubIdIndexKey, err := stub.CreateCompositeKey(indexName, []string{dataEntry.Publisher, dataEntry.DataEntryId})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	//  Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
-	//  Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
+	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
+	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value1 := []byte{0x00}
 	stub.PutState(pubIdIndexKey, value1)
 
-	// ==== data entry saved and indexed. Return success ====
-	fmt.Println("- end create data entry")
-	return shim.Success(nil)
+	// Data entry saved and indexed
+	return shim.Success([]byte("Data entry is created"))
 }
 
-// ====================================================================
+////////////////////////////////////////////////////////////////////////
 // getDataEntryById - read data entry from chaincode state based its Id
-// ====================================================================
+////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) getDataEntryById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var jsonResp string
 	var err error
 
 	if len(args) != 1 {
@@ -160,29 +153,27 @@ func (cc *Chaincode) getDataEntryById(stub shim.ChaincodeStubInterface, args []s
 	}
 
 	dataEntryId := args[0]
-	valAsbytes, err := stub.GetState(dataEntryId) //get the data entry from chaincode state
+	dataAsBytes, err := stub.GetState(dataEntryId) //get the data entry from chaincode state
 	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + dataEntryId + "\"}"
-		return shim.Error(jsonResp)
-	} else if valAsbytes == nil {
-		jsonResp = "{\"Error\":\"Data entry does not exist: " + dataEntryId + "\"}"
-		return shim.Error(jsonResp)
+		return shim.Error(err.Error())
+	} else if dataAsBytes == nil {
+		return shim.Error(err.Error())
 	}
 
-	return shim.Success(valAsbytes)
+	return shim.Success(dataAsBytes)
 }
 
-// ===============================================
+//////////////////////////////////////////////////////////////////////////////////
 // queryDataEntryByPublisher - query data entry from chaincode state by publisher
-// ===============================================
+//////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting publisher to query")
+		return shim.Error("Incorrect number of arguments. Expecting publisher name")
 	}
 
-	publisher := strings.ToLower(args[0])
+	publisher := args[0]
 	// Query the Publisher~DataEntryId index by publisher
 	// This will execute a key range query on all keys starting with 'Publisher'
 	pubIdResultsIterator, err := stub.GetStateByPartialCompositeKey("Publisher~DataEntryId", []string{publisher})
@@ -192,8 +183,8 @@ func (cc *Chaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInterface,
 	defer pubIdResultsIterator.Close()
 
 	// Iterate through result set and for each DataEntry found
+	var dataAsBytes []byte
 	var i int
-	var valAsbytes []byte
 	for i = 0; pubIdResultsIterator.HasNext(); i++ {
 		// Note that we don't get the value (2nd return variable), we'll just get the DataEntryId name from the composite key
 		responseRange, err := pubIdResultsIterator.Next()
@@ -214,17 +205,17 @@ func (cc *Chaincode) queryDataEntryByPublisher(stub shim.ChaincodeStubInterface,
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of data entry failed: " + response.Message)
 		}
-		valAsbytes = append(valAsbytes, response.Payload...)
-		valAsbytes = append(valAsbytes, []byte(string('\n'))...)
+		dataAsBytes = append(dataAsBytes, response.Payload...)
+		dataAsBytes = append(dataAsBytes, []byte("\n")...)
 	}
-	responsePayload := fmt.Sprintf("\nFound %d data entry from publisher %s", i, publisher)
-	fmt.Println("- end queryDataEntryByPublisher: " + responsePayload)
-	return shim.Success(append(valAsbytes, []byte(responsePayload)...))
+	summary := fmt.Sprintf("\nFound %d data entry from publisher %s", i, publisher)
+	dataAsBytes = append(dataAsBytes, summary...)
+	return shim.Success(dataAsBytes)
 }
 
-// ================================================================================
+////////////////////////////////////////////////////////////
 // invokeChaincode - invokes chaincode in different channel
-// ================================================================================
+////////////////////////////////////////////////////////////
 func (cc *Chaincode) revealDataValue(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	var dataEntry DataEntry
@@ -235,20 +226,18 @@ func (cc *Chaincode) revealDataValue(stub shim.ChaincodeStubInterface, args []st
 	chaincodeName := args[0]
 	dataEntryId := args[1]
 	channel := args[2]
-	f := []byte(string("getDataEntryById"))
+	f := []byte("getDataEntryById")
 	argsToChaincode := [][]byte{f, []byte(dataEntryId)}
 
 	// check if the dataEntryId is present in channel2 ledger
-	valAsbytes, err := stub.GetState(dataEntryId) //get the data entry from chaincode state
+	dataAsBytes, err := stub.GetState(dataEntryId) //get the data entry from chaincode state
 	if err != nil {
-		jsonResp := "{\"Error\":\"Failed to get state for " + dataEntryId + "\"}"
-		return shim.Error(jsonResp)
-	} else if valAsbytes == nil {
-		jsonResp := "{\"Error\":\"Data entry does not exist: " + dataEntryId + "\"}"
-		return shim.Error(jsonResp)
+		return shim.Error(err.Error())
+	} else if dataAsBytes == nil {
+		return shim.Error(err.Error())
 	}
 
-	err = json.Unmarshal(valAsbytes, &dataEntry)
+	err = json.Unmarshal(dataAsBytes, &dataEntry)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -256,33 +245,15 @@ func (cc *Chaincode) revealDataValue(stub shim.ChaincodeStubInterface, args []st
 	response := stub.InvokeChaincode(chaincodeName, argsToChaincode, channel)
 	if response.Status != shim.OK {
 		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(response.Payload))
-		fmt.Printf(errStr)
 		return shim.Error(errStr)
 	}
-
-	fmt.Printf("Invoke chaincode successful. Got response %s", string(response.Payload))
 
 	err = stub.PutState(dataEntryId, response.Payload)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 
-	//  ==== Index the data to enable publisher-based range queries ====
-	//  An 'index' is a normal key/value entry in state.
-	//  The key is a composite key, with the elements that you want to range query on listed first.
-	indexName := "Publisher~DataEntryId"
-	pubIdIndexKey, err := stub.CreateCompositeKey(indexName, []string{dataEntry.Publisher, dataEntryId})
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	//  Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
-	//  Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
-	value1 := []byte{0x00}
-	stub.PutState(pubIdIndexKey, value1)
+	//  Data are already indexed.
 
-	// ==== data entry saved and indexed. Return success ====
-	fmt.Println("- end create data entry")
-
-	fmt.Println(response)
 	return response
 }

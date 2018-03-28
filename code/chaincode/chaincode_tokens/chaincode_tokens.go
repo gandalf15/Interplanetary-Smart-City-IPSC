@@ -39,27 +39,30 @@ func main() {
 // Init initializes chaincode - Creates initial amount of tokens in two accounts
 /////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+
 	// create initial ammount of tokens
 	var err error
-	_, args := stub.GetFunctionAndParameters()
-	if len(args) != 1 {
-		return shim.Error("Incorect number of arguments. Expectiong number of tokens to create")
+
+	args := stub.GetStringArgs()
+	if len(args) != 2 {
+		return shim.Error(`Incorect number of arguments.
+			Expectiong number of accounts and tokens for each account to create`)
 	}
-	tokens, err := strconv.Atoi(args[0])
+	noOfAccounts, err := strconv.Atoi(args[0])
+	if err != nil {
+		return shim.Error("Expecting integer as number of accounts to create.")
+	}
+	tokens, err := strconv.Atoi(args[1])
 	if err != nil {
 		return shim.Error("Expecting integer as number of tokens to init.")
 	}
-
-	var accounts []Account
-	for i := 0; i < 2; i++ {
-		accounts[i].RecordType = "ACCOUNT"
-		accounts[i].AccountId = string(i)
-		accounts[i].Name = "Init_Account_" + string(i)
-		accounts[i].Tokens = int64(tokens)
+	accounts := make([]*Account, noOfAccounts)
+	for i := 0; i < noOfAccounts; i++ {
+		accounts[i] = &Account{"ACCOUNT", strconv.Itoa(i + 1), "Init_Account", int64(tokens)}
 	}
 	var accountJSONasBytes []byte
-	for i := 0; i < 2; i++ {
-		accountJSONasBytes, err = json.Marshal(accounts[1])
+	for i := 0; i < noOfAccounts; i++ {
+		accountJSONasBytes, err = json.Marshal(accounts[i])
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -68,8 +71,23 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 			return shim.Error(err.Error())
 		}
 	}
+	//  Index the account to enable name-based range queries
+	//  An 'index' is a normal key/value entry in state.
+	//  The key is a composite key, with the elements that you want to range query on listed first.
+	indexName := "Name~AccountId"
+	var nameIdIndexKey string
+	for i := 0; i < noOfAccounts; i++ {
+		nameIdIndexKey, err = stub.CreateCompositeKey(indexName, []string{accounts[i].Name, accounts[i].AccountId})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		//  Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
+		//  Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
+		value := []byte{0x00}
+		stub.PutState(nameIdIndexKey, value)
+	}
 
-	return shim.Success([]byte("Chaincode initialised"))
+	return shim.Success(nil)
 }
 
 ////////////////////////////////////////////
@@ -82,8 +100,10 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	// Handle different functions
 	if function == "createAccount" { //create a new account
 		return cc.createAccount(stub, args)
-	} else if function == "deleteAccountById" { // delete an account by account Id
-		return cc.deleteAccountById(stub, args)
+		/*
+			} else if function == "deleteAccountById" { // delete an account by account Id
+				return cc.deleteAccountById(stub, args)
+		*/
 	} else if function == "getAccountById" { // get an account by its Id
 		return cc.getAccountById(stub, args)
 	} else if function == "queryAccountByName" { // find an account base on name of account holder
@@ -159,15 +179,16 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 	return shim.Success([]byte("Account created"))
 }
 
+/*
 func (cc *Chaincode) deleteAccountById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	return shim.Success(nil)
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////
 // getAccountById - read account entry from chaincode state based on its Id
 ////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) getAccountById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	var jsonResp string
 	var err error
 
 	if len(args) != 1 {
@@ -177,11 +198,9 @@ func (cc *Chaincode) getAccountById(stub shim.ChaincodeStubInterface, args []str
 	accountId := args[0]
 	accountAsBytes, err := stub.GetState(accountId) //get the account entry from chaincode state
 	if err != nil {
-		jsonResp = "{\"Error\":\"Failed to get state for " + accountId + "\"}"
-		return shim.Error(jsonResp)
+		return shim.Error(err.Error())
 	} else if accountAsBytes == nil {
-		jsonResp = "{\"Error\":\"Data entry does not exist: " + accountId + "\"}"
-		return shim.Error(jsonResp)
+		return shim.Error(err.Error())
 	}
 
 	return shim.Success(accountAsBytes)
@@ -194,13 +213,13 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 	var err error
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting publisher to query")
+		return shim.Error("Incorrect number of arguments. Expecting name of account holder")
 	}
 
 	name := args[0]
 	// Query the Name~AccountId index by publisher
 	// This will execute a key range query on all keys starting with 'Publisher'
-	nameIdResultsIterator, err := stub.GetStateByPartialCompositeKey("Name-AccountId", []string{name})
+	nameIdResultsIterator, err := stub.GetStateByPartialCompositeKey("Name~AccountId", []string{name})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
@@ -208,7 +227,6 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 
 	// Iterate through result set
 	var accountsAsBytes []byte
-	length := 0
 	var i int
 	for i = 0; nameIdResultsIterator.HasNext(); i++ {
 		// Note that we don't get the value (2nd return variable).
@@ -229,20 +247,12 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of account entry failed: " + response.Message)
 		}
-		length += copy(accountsAsBytes[length:], response.Payload)
-		length += copy(accountsAsBytes[length:], "\n")
+		accountsAsBytes = append(accountsAsBytes, response.Payload...)
+		accountsAsBytes = append(accountsAsBytes, []byte("\n")...)
 	}
-	responsePayload := fmt.Sprintf("\nFound %d accounts where name is %s", i, name)
-	length += copy(accountsAsBytes[length:], responsePayload)
+	summary := fmt.Sprintf("\nFound %d accounts with name %s", i, name)
+	accountsAsBytes = append(accountsAsBytes, summary...)
 	return shim.Success(accountsAsBytes)
-}
-
-// ================================================================================
-// invokeChaincode - invokes chaincode in different channel
-// ================================================================================
-func (cc *Chaincode) invokeChaincode(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-
-	return shim.Success(nil)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -251,10 +261,11 @@ func (cc *Chaincode) invokeChaincode(stub shim.ChaincodeStubInterface, args []st
 
 func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
-
 	//       0              1            2
 	// FromAccountId    ToAccountId    Amount
-
+	if len(args) != 3 {
+		return shim.Error("Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount")
+	}
 	// Input sanitation
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
@@ -262,7 +273,7 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 	if len(args[1]) <= 0 {
 		return shim.Error("2nd argument must be a non-empty string")
 	}
-	if len(args[3]) <= 0 {
+	if len(args[2]) <= 0 {
 		return shim.Error("3rd argument must be a non-empty string")
 	}
 
@@ -274,48 +285,56 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting integer as number of tokens to transfer.")
 	}
 
-	fromAccountAsBytes, err := stub.GetState(fromAccountId)
+	fromAccountAsBytes, err := stub.GetState(fromAccountId) //get the account entry from chaincode state
 	if err != nil {
 		return shim.Error(err.Error())
-	}
-	toAccountAsBytes, err := stub.GetState(toAccountId)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	var fromAccount, toAccount Account
-	err = json.Unmarshal(fromAccountAsBytes, &fromAccount)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	err = json.Unmarshal(toAccountAsBytes, &toAccount)
-	if err != nil {
+	} else if fromAccountAsBytes == nil {
 		return shim.Error(err.Error())
 	}
 
+	toAccountAsBytes, err := stub.GetState(toAccountId)
+	if err != nil {
+		return shim.Error(err.Error())
+	} else if toAccountAsBytes == nil {
+		return shim.Error(err.Error())
+	}
+
+	var fromAccount, toAccount Account
+	err = json.Unmarshal(fromAccountAsBytes, &fromAccount)
+	if err != nil {
+		return shim.Error("Some error: " + err.Error())
+	}
+
+	err = json.Unmarshal(toAccountAsBytes, &toAccount)
+	if err != nil {
+		return shim.Error("Some error: " + err.Error())
+	}
 	if fromAccount.Tokens < tokens {
 		return shim.Error("Account does not have sufficient amount of tokens.")
 	}
+
 	fromAccount.Tokens -= tokens
 	toAccount.Tokens += tokens
 
 	// Marshal objects back
-	fromAccountAsBytes, err = json.Marshal(&fromAccount)
+	fromAccountAsBytesNew, err := json.Marshal(&fromAccount)
 	if err != nil {
-		return shim.Error(err.Error())
+		return shim.Error("Some error: " + err.Error())
 	}
-	toAccountAsBytes, err = json.Marshal(&toAccount)
+	toAccountAsBytesNew, err := json.Marshal(&toAccount)
 	if err != nil {
-		return shim.Error(err.Error())
+		return shim.Error("Some error: " + err.Error())
 	}
 	// Write state back to the ledger
-	err = stub.PutState(fromAccountId, fromAccountAsBytes)
+	err = stub.PutState(fromAccountId, fromAccountAsBytesNew)
 	if err != nil {
-		return shim.Error(err.Error())
+		return shim.Error("Some error: " + err.Error())
 	}
-	err = stub.PutState(toAccountId, toAccountAsBytes)
+	err = stub.PutState(toAccountId, toAccountAsBytesNew)
 	if err != nil {
-		return shim.Error(err.Error())
+		return shim.Error("Some error: " + err.Error())
 	}
 
-	return shim.Success([]byte("Tokens transfered"))
+	return shim.Success(nil)
+
 }
