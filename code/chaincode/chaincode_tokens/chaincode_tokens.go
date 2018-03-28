@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"runtime"
 	"strconv"
+	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -28,7 +29,7 @@ type Account struct {
 /////////////////
 func main() {
 	// increase max CPU
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	// runtime.GOMAXPROCS(runtime.NumCPU())
 	err := shim.Start(new(Chaincode))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
@@ -100,12 +101,12 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	// Handle different functions
 	if function == "createAccount" { //create a new account
 		return cc.createAccount(stub, args)
-		/*
-			} else if function == "deleteAccountById" { // delete an account by account Id
-				return cc.deleteAccountById(stub, args)
-		*/
+	} else if function == "deleteAccountById" { // delete an account by account Id
+		return cc.deleteAccountById(stub, args)
 	} else if function == "getAccountById" { // get an account by its Id
 		return cc.getAccountById(stub, args)
+	} else if function == "getHistoryForAccount" { // get history for an account by its Id
+		return cc.getHistoryForAccount(stub, args)
 	} else if function == "queryAccountByName" { // find an account base on name of account holder
 		return cc.queryAccountByName(stub, args)
 	} else if function == "transferTokens" { // transfer tokens from one account to another
@@ -179,11 +180,50 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 	return shim.Success([]byte("Account created"))
 }
 
-/*
 func (cc *Chaincode) deleteAccountById(stub shim.ChaincodeStubInterface, args []string) pb.Response {
-	return shim.Success(nil)
+	var err error
+	//       0
+	// deleteAccountId
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting AccountId.")
+	}
+	// Input sanitation
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
+	}
+
+	accountId := args[0]
+	accountAsBytes, err := stub.GetState(accountId) //get the account entry from chaincode state
+	var account Account
+	err = json.Unmarshal(accountAsBytes, &account)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	if account.Tokens == 0 {
+		// Delete the account state
+		err = stub.DelState(accountId)
+		if err != nil {
+			return shim.Error("Failed to delete state:" + err.Error())
+		}
+
+		// maintain the index
+		indexName := "Name~AccountId"
+		nameIdIndexKey, err := stub.CreateCompositeKey(indexName, []string{account.Name, account.AccountId})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		//  Delete index entry to state.
+		err = stub.DelState(nameIdIndexKey)
+		if err != nil {
+			return shim.Error("Failed to delete state:" + err.Error())
+		}
+
+		return shim.Success(nil)
+	} else {
+		return shim.Error("Account cannot be deleted. Amount of tokens is not 0.")
+	}
 }
-*/
 
 ////////////////////////////////////////////////////////////////////////////
 // getAccountById - read account entry from chaincode state based on its Id
@@ -279,6 +319,9 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 
 	fromAccountId := args[0]
 	toAccountId := args[1]
+	if fromAccountId == toAccountId {
+		return shim.Error("From account and to account cannot be the same.")
+	}
 	amount, err := strconv.Atoi(args[2])
 	tokens := int64(amount)
 	if err != nil {
@@ -337,4 +380,65 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 
 	return shim.Success(nil)
 
+}
+
+func (t *Chaincode) getHistoryForAccount(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+
+	if len(args) < 1 {
+		return shim.Error("Incorrect number of arguments. Expecting AccountId")
+	}
+
+	accountId := args[0]
+
+	resultsIterator, err := stub.GetHistoryForKey(accountId)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer resultsIterator.Close()
+
+	// buffer is a JSON array containing historic values for the account
+	var buffer bytes.Buffer
+	buffer.WriteString("[")
+
+	for resultsIterator.HasNext() {
+		response, err := resultsIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		buffer.WriteString("{\"TxId\":")
+		buffer.WriteString("\"")
+		buffer.WriteString(response.TxId)
+		buffer.WriteString("\"")
+
+		buffer.WriteString(", \"Value\":")
+		// if it was a delete operation on given key, then we set the
+		// value to null. Else, we will write the response.Value
+		// as-is (as the Value itself a JSON)
+		if response.IsDelete {
+			buffer.WriteString("null")
+		} else {
+			buffer.WriteString(string(response.Value))
+		}
+
+		buffer.WriteString(", \"Timestamp\":")
+		buffer.WriteString("\"")
+		buffer.WriteString(time.Unix(response.Timestamp.Seconds, int64(response.Timestamp.Nanos)).String())
+		buffer.WriteString("\"")
+
+		// was it delete transaction?
+		buffer.WriteString(", \"IsDelete\":")
+		buffer.WriteString("\"")
+		buffer.WriteString(strconv.FormatBool(response.IsDelete))
+		buffer.WriteString("\"")
+
+		buffer.WriteString("}")
+		// Add a comma in front of an array member
+		if resultsIterator.HasNext() {
+			buffer.WriteString(",")
+		}
+	}
+	buffer.WriteString("]")
+
+	return shim.Success(buffer.Bytes())
 }

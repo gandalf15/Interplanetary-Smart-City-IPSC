@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"runtime"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -30,7 +29,7 @@ type DataEntry struct {
 ////////
 func main() {
 	// increase max CPU
-	runtime.GOMAXPROCS(runtime.NumCPU())
+	// runtime.GOMAXPROCS(runtime.NumCPU())
 	err := shim.Start(new(Chaincode))
 	if err != nil {
 		shim.Error(err.Error())
