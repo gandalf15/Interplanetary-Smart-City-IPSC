@@ -279,7 +279,7 @@ func (cc *Chaincode) revealFreeData(stub shim.ChaincodeStubInterface, args []str
 
 	response := stub.InvokeChaincode(chaincodeName, argsToChaincode, channel)
 	if response.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(response.Payload))
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(response.Message))
 		return shim.Error(errStr)
 	}
 
@@ -390,7 +390,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	argsToChaincode := [][]byte{fTokens, []byte(txID)}
 	responseRecipientID := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
 	if responseRecipientID.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseRecipientID.Payload))
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseRecipientID.Message))
 		return shim.Error(errStr)
 	}
 
@@ -406,7 +406,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	argsToChaincode = [][]byte{fData, []byte(dataEntryID)}
 	responseData := stub.InvokeChaincode(chaincodeDataName, argsToChaincode, channelData)
 	if responseData.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseData.Payload))
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseData.Message))
 		return shim.Error(errStr)
 	}
 
@@ -416,7 +416,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	argsToChaincode = [][]byte{fTokens, []byte(txID)}
 	responseTxSpent := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
 	if responseTxSpent.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseTxSpent.Payload))
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseTxSpent.Message))
 		return shim.Error(errStr)
 	}
 

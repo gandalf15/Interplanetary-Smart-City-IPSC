@@ -39,22 +39,33 @@ func main() {
 // Init initializes chaincode - Creates initial amount of tokens in two accounts
 /////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
-
 	// create initial ammount of tokens
 	var err error
-
+	//    		0                	1
+	// "NumberOfAccount" "Initial amount of tokens"
 	args := stub.GetStringArgs()
 	if len(args) != 2 {
 		return shim.Error(`Incorect number of arguments.
 			Expectiong number of accounts and tokens for each account to create`)
 	}
+	// Input sanitation
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
+	}
+	if len(args[1]) <= 0 {
+		return shim.Error("2nd argument must be a non-empty string")
+	}
+
 	noOfAccounts, err := strconv.Atoi(args[0])
-	if err != nil {
-		return shim.Error("Expecting integer as number of accounts to create.")
+	if err != nil || noOfAccounts < 0 {
+		return shim.Error("Expecting positiv integer or zero as number of accounts to create.")
+	}
+	if noOfAccounts == 0 {
+		return shim.Success(nil)
 	}
 	tokens, err := strconv.Atoi(args[1])
-	if err != nil {
-		return shim.Error("Expecting integer as number of tokens to init.")
+	if err != nil || tokens < 0 {
+		return shim.Error("Expecting positiv integer or zero as number of tokens to init.")
 	}
 	accounts := make([]*Account, noOfAccounts)
 	for i := 0; i < noOfAccounts; i++ {
@@ -147,7 +158,6 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 	if err != nil {
 		return shim.Error("Failed to get account: " + err.Error())
 	} else if accountAsBytes != nil {
-		fmt.Println("This account already exists: " + accountID)
 		return shim.Error("This account already exists: " + accountID)
 	}
 
@@ -401,6 +411,8 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 // getHistoryForAccount - get the whole history of specific account number even if it was deleted from state.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) getHistoryForAccount(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	//    0
+	// "accountID"
 
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting AccountID")
