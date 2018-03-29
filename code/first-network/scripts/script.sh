@@ -339,6 +339,8 @@ CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
 PAYLOAD='{"Args":["transferTokens", "1", "2", "10"]}'
 chaincodeInvoke 0 chaincode_tokens
 
+# peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode2 -c '{"Args":["revealPaidData", "simple_chaincode", "2", "channel1", "chaincode_tokens", "TxID", "channel3"]}' -C channel2
+
 #Query on chaincode on Peer0/Org1
 # echo "Querying chaincode on org1/peer0..."
 # chaincodeQuery 0 100

@@ -373,7 +373,8 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	if txIDResultsIterator.HasNext() {
 		return shim.Error("Transaction was already used for data purchase.")
 	}
-	// it only indexes if this whoile transaction is commited. Atomicity...
+	// it only indexes if this transaction is commited. Atomicity...
+	// therefore this statement does not have to be at the end.
 	txIDIndexKey, err := stub.CreateCompositeKey(indexName, []string{txID, dataEntryAd.DataEntryID})
 	if err != nil {
 		return shim.Error(err.Error())
@@ -386,31 +387,42 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 
 	// invoke chaincode and get the recipient of Tx
 	fTokens := []byte("getRecipientTx")
-	argsToChaincodeTokens := [][]byte{fTokens, []byte(txID)}
-	response := stub.InvokeChaincode(chaincodeTokensName, argsToChaincodeTokens, channelTokens)
-	if response.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(response.Payload))
+	argsToChaincode := [][]byte{fTokens, []byte(txID)}
+	responseRecipientID := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
+	if responseRecipientID.Status != shim.OK {
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseRecipientID.Payload))
 		return shim.Error(errStr)
 	}
 
 	// Check if recipient of the Tx is the data entry account No.
-	recipientAccID := string(response.Payload)
+	recipientAccID := string(responseRecipientID.Payload)
 	if recipientAccID != dataEntryAd.AccountNo {
 		return shim.Error("This transaction does not have the same recipient account ID as required by data entry ad.")
 	}
 
 	// invoke chaincode in channel where data entry with value is
+	// this prevent from indexing TxID as used if data entry is not present on another channel
 	fData := []byte("getDataByID")
-	argsToChaincodeData := [][]byte{fData, []byte(dataEntryID)}
-	response = stub.InvokeChaincode(chaincodeDataName, argsToChaincodeData, channelData)
-	if response.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(response.Payload))
+	argsToChaincode = [][]byte{fData, []byte(dataEntryID)}
+	responseData := stub.InvokeChaincode(chaincodeDataName, argsToChaincode, channelData)
+	if responseData.Status != shim.OK {
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseData.Payload))
+		return shim.Error(errStr)
+	}
+
+	// at this stage we know that Tx recipient is correct and data entry present
+	// invoke chaincode and check/add Tx to the central index as spent
+	fTokens = []byte("addTxAsUsed")
+	argsToChaincode = [][]byte{fTokens, []byte(txID)}
+	responseTxSpent := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
+	if responseTxSpent.Status != shim.OK {
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseTxSpent.Payload))
 		return shim.Error(errStr)
 	}
 
 	// unmarshal data entry
 	var dataEntry DataEntry
-	err = json.Unmarshal(response.Payload, &dataEntry)
+	err = json.Unmarshal(responseData.Payload, &dataEntry)
 	if err != nil {
 		return shim.Error(err.Error())
 	}

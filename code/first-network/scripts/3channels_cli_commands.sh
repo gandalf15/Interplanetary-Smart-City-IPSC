@@ -78,19 +78,7 @@ installChaincode 2
 instantiateChaincode 2
 
 
-#peer channel join -b channel1.block
-#sleep 2
-#peer channel join -b channel2.block
-#sleep 2
-#peer channel join -b channel3.block
-#sleep2
-# peer chaincode install -n simple_chaincode -v 1.0 -p github.com/hyperledger/fabric/chaincode/simple_chaincode
-# sleep 1
-# peer chaincode instantiate -o orderer.zak.codes:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -C channel1 -n simple_chaincode -v 1.0 -c '{"Args":["init","a", "100"]}' -P "OR ('City1MSP.member','City2MSP.member')"
-# sleep 1
-# peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode2 -c '{"Args":["createDataEntry", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}' -C channel2
-# sleep 1
-# peer chaincode query -n chaincode2 -c '{"Args":["getDataEntryById","1"]}' -C channel2
+# peer chaincode query -n chaincode2 -c '{"Args":["getDataAdByID","1"]}' -C channel2
 # peer chaincode query -n chaincode2 -c '{"Args":["queryDataEntryByPublisher","marcel"]}' -C channel2
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode2 -c '{"Args":["revealDataValue", "simple_chaincode", "1", "channel1"]}' -C channel2
 # while true; do sleep 1000; done

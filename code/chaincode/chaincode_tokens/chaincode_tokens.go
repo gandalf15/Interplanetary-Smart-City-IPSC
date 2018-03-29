@@ -109,8 +109,11 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return cc.queryAccountByName(stub, args)
 	} else if function == "transferTokens" { // transfer tokens from one account to another
 		return cc.transferTokens(stub, args)
-	} else if function == "getRecipientTx" { // transfer tokens from one account to another
+	} else if function == "getRecipientTx" { // get recipient ID based on TxID
 		return cc.getRecipientTx(stub, args)
+	} else if function == "addTxAsUsed" { // Add TxID as used to state and index it.
+		return cc.addTxAsUsed(stub, args)
+
 	}
 
 	fmt.Println("invoke did not find func: " + function) //error
@@ -390,6 +393,7 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 	value := []byte{0x00}
 	stub.PutState(txIDIndexKey, value)
 	// TxId entry saved and indexed
+
 	return shim.Success([]byte(txID))
 
 }
@@ -502,5 +506,45 @@ func (cc *Chaincode) getRecipientTx(stub shim.ChaincodeStubInterface, args []str
 	}
 
 	return shim.Success([]byte(recipientAccountID))
+
+}
+
+// checkUsedTx - check if specific transaction is already used. If not then it adds it to the index
+////////////////////////////////////////////////////////////////////////////////////////////////////
+func (cc *Chaincode) addTxAsUsed(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var err error
+	//    0
+	// "txID"
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting TxID")
+	}
+	// Input sanitation
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
+	}
+	indexName := "TxID~Used"
+	txID := args[0]
+	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey(indexName, []string{txID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer txIDResultsIterator.Close()
+
+	if txIDResultsIterator.HasNext() {
+		return shim.Error("Transaction was already used for data purchase.")
+	}
+
+	txIDUsedIndexKey, err := stub.CreateCompositeKey(indexName, []string{txID, "TRUE"})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
+	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
+	value := []byte{0x00}
+	stub.PutState(txIDUsedIndexKey, value)
+	// txId entry saved and indexed
+
+	return shim.Success([]byte("Added as used Tx"))
 
 }
