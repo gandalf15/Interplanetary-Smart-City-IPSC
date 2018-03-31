@@ -226,24 +226,24 @@ func (cc *Chaincode) queryDataByPub(stub shim.ChaincodeStubInterface, args []str
 		}
 
 		// get the publisher and dataEntryID from Publisher~DataEntryID composite key
-		objectType, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
+		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		returnedPublisher := compositeKeyParts[0]
 		returnedDataEntryID := compositeKeyParts[1]
-		fmt.Printf("- found a data entry from index:%s Publisher:%s DataEntryID:%s\n", objectType, returnedPublisher, returnedDataEntryID)
 
 		response := cc.getDataAdByID(stub, []string{returnedDataEntryID})
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of data entry failed: " + response.Message)
 		}
-		// TODO: create JSON array from the entries
 		dataAsBytes = append(dataAsBytes, response.Payload...)
-		dataAsBytes = append(dataAsBytes, []byte("\n")...)
+		if pubIDResultsIterator.HasNext() {
+			dataAsBytes = append(dataAsBytes, []byte(",")...)
+		}
 	}
-	summary := fmt.Sprintf("\nFound %d data entry from publisher %s", i, publisher)
-	dataAsBytes = append(dataAsBytes, summary...)
+	dataAsBytes = append([]byte("["), dataAsBytes...)
+	dataAsBytes = append(dataAsBytes, []byte("]")...)
+	// It returns results as JSON array
 	return shim.Success(dataAsBytes)
 }
 

@@ -105,7 +105,6 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 ////////////////////////////////////////////
 func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	function, args := stub.GetFunctionAndParameters()
-	fmt.Println("invoke is running " + function)
 
 	// Handle different functions
 	if function == "createAccount" { //create a new account
@@ -114,8 +113,8 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return cc.deleteAccountByID(stub, args)
 	} else if function == "getAccountByID" { // get an account by its Id
 		return cc.getAccountByID(stub, args)
-	} else if function == "getHistoryForAccount" { // get history for an account by its Id
-		return cc.getHistoryForAccount(stub, args)
+	} else if function == "getAccountHistoryByID" { // get history for an account by its Id
+		return cc.getAccountHistoryByID(stub, args)
 	} else if function == "queryAccountByName" { // find an account base on name of account holder
 		return cc.queryAccountByName(stub, args)
 	} else if function == "transferTokens" { // transfer tokens from one account to another
@@ -127,7 +126,6 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 
 	}
 
-	fmt.Println("invoke did not find func: " + function) //error
 	return shim.Error("Received unknown function invocation")
 }
 
@@ -246,7 +244,11 @@ func (cc *Chaincode) getAccountByID(stub shim.ChaincodeStubInterface, args []str
 	var err error
 
 	if len(args) != 1 {
-		return shim.Error("Incorrect number of arguments. Expecting account Id")
+		return shim.Error("Incorrect number of arguments. Expecting account ID")
+	}
+
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
 	}
 
 	accountID := args[0]
@@ -267,6 +269,10 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting name of account holder")
+	}
+
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
 	}
 
 	name := args[0]
@@ -301,10 +307,13 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 			return shim.Error("Retrieval of account entry failed: " + response.Message)
 		}
 		accountsAsBytes = append(accountsAsBytes, response.Payload...)
-		accountsAsBytes = append(accountsAsBytes, []byte("\n")...)
+		if nameIDResultsIterator.HasNext() {
+			accountsAsBytes = append(accountsAsBytes, []byte(",")...)
+		}
 	}
-	summary := fmt.Sprintf("\nFound %d accounts with name %s", i, name)
-	accountsAsBytes = append(accountsAsBytes, summary...)
+	accountsAsBytes = append([]byte("["), accountsAsBytes...)
+	accountsAsBytes = append(accountsAsBytes, []byte("]")...)
+	// It returns results as JSON array
 	return shim.Success(accountsAsBytes)
 }
 
@@ -408,9 +417,9 @@ func (cc *Chaincode) transferTokens(stub shim.ChaincodeStubInterface, args []str
 
 }
 
-// getHistoryForAccount - get the whole history of specific account number even if it was deleted from state.
+// getAccountHistoryByID - get the whole history of specific account number even if it was deleted from state.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////
-func (cc *Chaincode) getHistoryForAccount(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) getAccountHistoryByID(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	//    0
 	// "accountID"
 
