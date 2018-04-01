@@ -20,7 +20,7 @@ echo "====== chaincode2 recompiled ======"
 go build --tags nopkcs11 ../chaincode/chaincode_tokens/
 res=$?
 verifyResult $res "chaincode_tokens compilation failed"
-echo "====== chaincode_money recompiled ======"
+echo "====== chaincode_tokens recompiled ======"
 
 /home/marcel/fabric/bin/cryptogen generate --config=./crypto-config.yaml
 export FABRIC_CFG_PATH=$PWD
