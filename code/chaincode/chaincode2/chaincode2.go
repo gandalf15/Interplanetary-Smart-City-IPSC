@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
@@ -385,17 +386,19 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	stub.PutState(txIDIndexKey, value)
 	// txId entry saved and indexed
 
+	// TODO: change this for return value for both participants IDs
 	// invoke chaincode and get the recipient of Tx
-	fTokens := []byte("getRecipientTx")
+	fTokens := []byte("getTxParticipants")
 	argsToChaincode := [][]byte{fTokens, []byte(txID)}
-	responseRecipientID := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
-	if responseRecipientID.Status != shim.OK {
-		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseRecipientID.Message))
+	responseParticipantsIDs := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
+	if responseParticipantsIDs.Status != shim.OK {
+		errStr := fmt.Sprintf("Failed to invoke chaincode. Got error: %s", string(responseParticipantsIDs.Message))
 		return shim.Error(errStr)
 	}
 
 	// Check if recipient of the Tx is the data entry account No.
-	recipientAccID := string(responseRecipientID.Payload)
+	participantsAccIDs := strings.Split(string(responseParticipantsIDs.Payload), "->")
+	recipientAccID := participantsAccIDs[1]
 	if recipientAccID != dataEntryAd.AccountNo {
 		return shim.Error("This transaction does not have the same recipient account ID as required by data entry ad.")
 	}

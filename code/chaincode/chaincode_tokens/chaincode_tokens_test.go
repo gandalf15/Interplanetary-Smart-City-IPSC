@@ -370,7 +370,7 @@ func Test_getHistoryForAccount(t *testing.T) {
 }
 */
 
-func Test_getRecipientTx(t *testing.T) {
+func Test_getTxParticipants(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
@@ -388,12 +388,12 @@ func Test_getRecipientTx(t *testing.T) {
 		fmt.Println("Invoke", args, "failed", string(res.Message))
 		t.Fail()
 	}
-	// get the TxID and try to get recipient
-	args = [][]byte{[]byte("getRecipientTx"), res.Payload}
+	// get the TxID and participants
+	args = [][]byte{[]byte("getTxParticipants"), res.Payload}
 	checkInvoke(t, stub, args)
 
 	// It should fail with random TxID
-	args = [][]byte{[]byte("getRecipientTx"), []byte("-4863asfaebh")}
+	args = [][]byte{[]byte("getTxParticipants"), []byte("-4863asfaebh")}
 	checkInvokeFail(t, stub, args)
 }
 
