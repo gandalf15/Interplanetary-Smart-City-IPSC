@@ -281,11 +281,11 @@ PAYLOAD='{"Args":["2", "1000"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
 instantiateChaincode 2 chaincode2
 
-#Instantiate chaincode_TOKENS on Peer2/City2
+#Instantiate chaincode_tokens on Peer2/City2
 echo "--> Instantiating chaincode_tokens on Peer2/City2..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["2", "1000", "1"]}'
+PAYLOAD='{"Args":["2", "1000", "10"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
 instantiateChaincode 2 chaincode_tokens
 
@@ -344,7 +344,15 @@ echo "--> Sending invoke transaction transferTokens on Peer0/City1 on chaincode_
 echo
 sleep 2
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "false"]}'
+PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "true"]}'
+chaincodeInvoke 0 chaincode_tokens
+
+# Invoke on chaincode on Peer0/City1
+echo "--> Sending invoke transaction queryAccountByName on Peer0/City1 on chaincode_tokens"
+echo
+sleep 2
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["queryAccountByName", "Init_Account"]}'
 chaincodeInvoke 0 chaincode_tokens
 
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode2 -c '{"Args":["revealPaidData", "simple_chaincode", "2", "channel1", "chaincode_tokens", "TxID", "channel3"]}' -C channel2

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -20,17 +19,18 @@ type Chaincode struct {
 
 // Account represents account of a member
 type Account struct {
-	RecordType    string // RecordType is used to distinguish the various types of objects in state database
-	AccountID     string // unique id of the account
-	Name          string // name of the account holder
-	Tokens        int64  // amount of tokens (money)
-	PendingTokens int64  // pending tokens from pending transactions
+	RecordType string // RecordType is used to distinguish the various types of objects in state database
+	AccountID  string // unique id of the account
+	Name       string // name of the account holder
+	Tokens     int64  // amount of tokens (money)
 }
 
 // limitTokens - limits the highest number of tokens that can be transfered
 // from account without immediate verification of available tokens.
 // This provides high throughput required for IoT data an many transactions per sec
-var limitTokens int64 = 1
+var (
+	limitTokens int64 = 1
+)
 
 // Main function
 /////////////////
@@ -43,7 +43,7 @@ func main() {
 	}
 }
 
-// Init initializes chaincode - Creates initial amount of tokens in two accounts
+// Init initialises chaincode - Creates initial amount of tokens in two accounts
 /////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	// create initial ammount of tokens
@@ -55,7 +55,7 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error(`Incorect number of arguments.
 			Expectiong number of accounts and tokens for each account to create`)
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -65,7 +65,7 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	if len(args[2]) <= 0 {
 		return shim.Error("2nd argument must be a non-empty string")
 	}
-
+	// Extract values of number of accounts and tokens to initialise
 	noOfAccounts, err := strconv.Atoi(args[0])
 	if err != nil || noOfAccounts < 0 {
 		return shim.Error("Expecting positiv integer or zero as number of accounts to create.")
@@ -81,11 +81,12 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	if err != nil || limitTokens < 0 {
 		return shim.Error("Expecting positiv integer or zero as number of limit tokens to init.")
 	}
-
+	// Create account objects in array
 	accounts := make([]*Account, noOfAccounts)
 	for i := 0; i < noOfAccounts; i++ {
-		accounts[i] = &Account{"ACCOUNT", strconv.Itoa(i + 1), "Init_Account", tokens, 0}
+		accounts[i] = &Account{"ACCOUNT", strconv.Itoa(i + 1), "Init_Account", tokens}
 	}
+	// marshal each account object and save to the blockchain
 	var accountJSONasBytes []byte
 	for i := 0; i < noOfAccounts; i++ {
 		accountJSONasBytes, err = json.Marshal(accounts[i])
@@ -97,32 +98,41 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 			return shim.Error(err.Error())
 		}
 	}
-	//  Index the account to enable name-based range queries
-	//  An 'index' is a normal key/value entry in state.
-	//  The key is a composite key, with the elements that you want to range query on listed first.
+	// Index the transactions that creates tokens
+	// An 'index' is a normal key/value entry in state.
+	// The key is a composite key, with the elements that you want to range query on listed first.
 	for i := 0; i < noOfAccounts; i++ {
 		txID := stub.GetTxID()
-		txRecipientIDCompositeKey, err := stub.CreateCompositeKey("Account~op~Tok~TxID", []string{strconv.Itoa(i), "+", strconv.FormatInt(tokens, 10), txID})
+		// Maintain index "Account~op~Tok~TxID"
+		txRecipientIDCompositeKey, err := stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{strconv.Itoa(i + 1), "+", strconv.FormatInt(tokens, 10), txID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
-		// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
 		// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 		value := []byte{0x00}
 		stub.PutState(txRecipientIDCompositeKey, value)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
+		// Maintain index "TxID~Sender~Recipient~Tok"
+		txParticipantsTokCompositeKey, err := stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",
+			[]string{txID, "Init", strconv.Itoa(i + 1), strconv.FormatInt(tokens, 10)})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		stub.PutState(txParticipantsTokCompositeKey, value)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
 		// Tx entry saved and indexed
-
+		// Index the account to enable name-based range queries
 		nameIDIndexKey, err := stub.CreateCompositeKey("Name~AccountID", []string{accounts[i].Name, accounts[i].AccountID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
 		stub.PutState(nameIDIndexKey, value)
 	}
-
 	return shim.Success(nil)
 }
 
@@ -150,12 +160,12 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return cc.getAccountTokens(stub, args)
 	} else if function == "getAccountHistoryByID" { // get history for an account by its Id
 		return cc.getAccountHistoryByID(stub, args)
-		/*
-			} else if function == "getTxParticipants" { // get recipient ID based on TxID
-				return cc.getTxParticipants(stub, args)
-			} else if function == "addTxAsUsed" { // Add TxID as used to state and index it.
-				return cc.addTxAsUsed(stub, args)
-		*/
+	} else if function == "getTxDetails" { // get transaction details (sender->recipient->tokens->[Pending|Valid])
+		return cc.getTxDetails(stub, args)
+	} else if function == "changePendingTx" { // change tx pending to tx valid so recipient can use the tokens
+		return cc.changePendingTx(stub, args)
+	} else if function == "pruneAccountTx" { // change tx pending to tx valid so recipient can use the tokens
+		return cc.pruneAccountTx(stub, args)
 	}
 
 	return shim.Error("Received unknown function invocation")
@@ -172,17 +182,16 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 		return shim.Error("Incorrect number of arguments. Expecting account Id and name")
 	}
 
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
 	if len(args[1]) <= 0 {
 		return shim.Error("2nd argument must be a non-empty string")
 	}
-
+	// Extract args
 	accountID := args[0]
 	name := args[1]
-
 	// Check if an account already exists
 	accountAsBytes, err := stub.GetState(accountID)
 	if err != nil {
@@ -190,21 +199,18 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 	} else if accountAsBytes != nil {
 		return shim.Error("This account already exists: " + accountID)
 	}
-
 	// Create Account object and marshal to JSON
 	recordType := "ACCOUNT"
-	accountEntry := &Account{recordType, accountID, name, 0, 0}
+	accountEntry := &Account{recordType, accountID, name, 0}
 	accountEntryJSONasBytes, err := json.Marshal(accountEntry)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
 	// Save account entry to state
 	err = stub.PutState(accountID, accountEntryJSONasBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
 	//  Index the account to enable name-based range queries
 	//  An 'index' is a normal key/value entry in state.
 	//  The key is a composite key, with the elements that you want to range query on listed first.
@@ -217,12 +223,11 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 	//  Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
 	stub.PutState(nameIDIndexKey, value)
-
 	// Account saved and indexed. Return success
 	return shim.Success([]byte("Account created"))
 }
 
-// deleteAccountByID - deletes the account if number of tokens is 0 and no pending Tx or pending tokens
+// deleteAccountByID - deletes the account if number of tokens is 0
 ///////////////////////////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) deleteAccountByID(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
@@ -231,93 +236,160 @@ func (cc *Chaincode) deleteAccountByID(stub shim.ChaincodeStubInterface, args []
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting AccountID.")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-
+	// Extract args
 	accountID := args[0]
-	accountAsBytes, err := stub.GetState(accountID) //get the account entry from chaincode state
+	// Get the account entry from chaincode state
+	accountAsBytes, err := stub.GetState(accountID)
 	var account Account
 	err = json.Unmarshal(accountAsBytes, &account)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	if (account.Tokens == 0) && (account.PendingTokens == 0) {
-		// Delete the account state
-		err = stub.DelState(accountID)
-		if err != nil {
-			return shim.Error("Failed to delete state:" + err.Error())
-		}
-
-		// maintain the index
-		indexName := "Name~AccountID"
-		nameIDIndexKey, err := stub.CreateCompositeKey(indexName, []string{account.Name, account.AccountID})
+	// Check if the account have any tokens
+	responseTokens := cc.getAccountTokens(stub, []string{accountID})
+	if responseTokens.Status != shim.OK {
+		return shim.Error(responseTokens.Message)
+	}
+	// convert Payload to int64
+	remainingTokensStr := string(responseTokens.Payload)
+	remainingTokens, err := strconv.ParseInt(remainingTokensStr, 10, 64)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	if remainingTokens != 0 {
+		return shim.Error("Account cannot be deleted. Amount of tokens is not 0.")
+	}
+	// Prune all Tx
+	responsePruneTx := cc.pruneAccountTx(stub, []string{accountID})
+	if responsePruneTx.Status != shim.OK {
+		return shim.Error(responsePruneTx.Message)
+	}
+	// Update Account state before delete
+	responseAccUpdate := cc.updateAccountTokens(stub, []string{accountID})
+	if responseAccUpdate.Status != shim.OK {
+		return shim.Error(responseAccUpdate.Message)
+	}
+	// Delete the account state
+	err = stub.DelState(accountID)
+	if err != nil {
+		return shim.Error("Failed to delete state:" + err.Error())
+	}
+	// Maintain the index Name~AccountID
+	indexName := "Name~AccountID"
+	nameIDIndexKey, err := stub.CreateCompositeKey(indexName, []string{account.Name, account.AccountID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	//  Delete index entry to state.
+	err = stub.DelState(nameIDIndexKey)
+	if err != nil {
+		return shim.Error("Failed to delete state:" + err.Error())
+	}
+	// Maintain the index "Account~op~Tok~TxID"
+	// Get the single account transactions for the account ID
+	accountTxIterator, err := stub.GetStateByPartialCompositeKey("Account~op~Tok~TxID",
+		[]string{accountID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer accountTxIterator.Close()
+	// If it is created account without any Tx then do not have to delete aby Tx in index
+	if accountTxIterator.HasNext() {
+		// Get the row
+		responseAccTxRange, err := accountTxIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
-		//  Delete index entry to state.
-		err = stub.DelState(nameIDIndexKey)
+		_, compositeKey, err := stub.SplitCompositeKey(responseAccTxRange.Key)
+		lastTxToDel := compositeKey[3]
 		if err != nil {
-			return shim.Error("Failed to delete state:" + err.Error())
+			return shim.Error(err.Error())
 		}
-
-		return shim.Success(nil)
+		//  Delete index entry to state.
+		err = stub.DelState(responseAccTxRange.Key)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Maintain the index "TxID~Sender~Recipient~Tok"
+		txParticipantsTokIterator, err := stub.GetStateByPartialCompositeKey("TxID~Sender~Recipient~Tok",
+			[]string{lastTxToDel})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		defer txParticipantsTokIterator.Close()
+		if !txParticipantsTokIterator.HasNext() {
+			return shim.Error("DeleteAccount: There was an entry in one index but no entry in the second index")
+		}
+		// Get the row
+		responseTxParticipantsRange, err := txParticipantsTokIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// // Delete the Tx entry in "TxID~Sender~Recipient~Tok"
+		err = stub.DelState(responseTxParticipantsRange.Key)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		if !txParticipantsTokIterator.HasNext() {
+			return shim.Error("DeleteAccount: Two Transactions with the same ID? Impossible!")
+		}
 	}
-
-	return shim.Error("Account cannot be deleted. Amount of tokens or pending tokens is not 0.")
-
+	// Return Success
+	return shim.Success([]byte("Account deleted"))
 }
 
 // getAccountByID - read account entry from chaincode state based on its Id
 ////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) getAccountByID(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
-
+	//     0
+	// "accountID"
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting account ID")
 	}
-
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-
+	// Extract args
 	accountID := args[0]
-	// Get all deltas for the variable
-
-	accountAsBytes, err := stub.GetState(accountID) //get the account entry from chaincode state
+	// Get the account entry from chaincode state
+	accountAsBytes, err := stub.GetState(accountID)
 	if err != nil {
 		return shim.Error(err.Error())
 	} else if accountAsBytes == nil {
 		return shim.Error(err.Error())
 	}
-
+	// Return as JSONasBytes
 	return shim.Success(accountAsBytes)
 }
 
-// queryAccountByName - query data entry from chaincode state by publisher
+// queryAccountByName - query data entry from chaincode state by name
 ///////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
-
+	//   1
+	// "name"
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting name of account holder")
 	}
-
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-
+	// Extract args
 	name := args[0]
-	// Query the Name~AccountID index by publisher
-	// This will execute a key range query on all keys starting with 'Publisher'
+	// Query the Name~AccountID index by name
+	// This will execute a key range query on all keys starting with 'name'
 	nameIDResultsIterator, err := stub.GetStateByPartialCompositeKey("Name~AccountID", []string{name})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	defer nameIDResultsIterator.Close()
-
 	// Iterate through result set
 	var accountsAsBytes []byte
 	var i int
@@ -327,24 +399,24 @@ func (cc *Chaincode) queryAccountByName(stub shim.ChaincodeStubInterface, args [
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
 		// get the Name and AccountID from Name~AccountID composite key
 		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		// returnedName := compositeKeyParts[0]
 		returnedAccountID := compositeKeyParts[1]
-
+		// Get the account from state
 		response := cc.getAccountByID(stub, []string{returnedAccountID})
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of account entry failed: " + response.Message)
 		}
+		// append account to array of bytes if there is more accounts
 		accountsAsBytes = append(accountsAsBytes, response.Payload...)
 		if nameIDResultsIterator.HasNext() {
 			accountsAsBytes = append(accountsAsBytes, []byte(",")...)
 		}
 	}
+	// Create JSON array from it
 	accountsAsBytes = append([]byte("["), accountsAsBytes...)
 	accountsAsBytes = append(accountsAsBytes, []byte("]")...)
 	// It returns results as JSON array
@@ -360,7 +432,7 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount, dataPurchase")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -373,9 +445,10 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 	if len(args[3]) <= 0 {
 		return shim.Error("3rd argument must be a non-empty string")
 	}
-
+	// Extract args
 	fromAccountID := args[0]
 	toAccountID := args[1]
+	// Check if sender and recipient args are the same
 	if fromAccountID == toAccountID {
 		return shim.Error("From account and to account cannot be the same.")
 	}
@@ -383,34 +456,43 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 	if err != nil {
 		return shim.Error("Expecting integer as number of tokens to transfer.")
 	}
+	// Check if the amount of tokens does not exceed limit for fast transfer
 	if tokensToSend > limitTokens {
 		return shim.Error("Exceeded max number of tokens for fast transaction. Use safe token transfer instead.")
 	}
-
+	// Is it payment for data purchase
 	dataPurchase, err := strconv.ParseBool(args[3])
 	if err != nil {
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
-
 	// Index txID and sender accounts ID
 	// this is required for quick lookup and transaction aggregation.
 	txID := stub.GetTxID()
-	var txSenderIDCompositeKey, txRecipientIDCompositeKey string
+	var SenderIDOpTokCompositeKey, recipientIDOpTokCompositeKey, txParticipantsTokCompositeKey string
 	if dataPurchase {
-		txSenderIDCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID", []string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
+		SenderIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		txRecipientIDCompositeKey, err = stub.CreateCompositeKey("Account~op~PendingTok~TxID", []string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		txParticipantsTokCompositeKey, err = stub.CreateCompositeKey("PendingTxID~Sender~Recipient~Tok",
+			[]string{txID, fromAccountID, toAccountID, strconv.FormatInt(tokensToSend, 10)})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
 	} else {
-		txSenderIDCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID", []string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
+		SenderIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		txRecipientIDCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID", []string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		recipientIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		txParticipantsTokCompositeKey, err = stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",
+			[]string{txID, fromAccountID, toAccountID, strconv.FormatInt(tokensToSend, 10)})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -418,17 +500,19 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
 	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
-	stub.PutState(txSenderIDCompositeKey, value)
+	stub.PutState(SenderIDOpTokCompositeKey, value)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
-	stub.PutState(txRecipientIDCompositeKey, value)
+	stub.PutState(recipientIDOpTokCompositeKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	stub.PutState(txParticipantsTokCompositeKey, value)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	// Tx entry saved and indexed
-
 	return shim.Success([]byte(txID))
 
 }
@@ -442,7 +526,7 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -455,9 +539,10 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	if len(args[3]) <= 0 {
 		return shim.Error("3rd argument must be a non-empty string")
 	}
-
+	// Extract args
 	fromAccountID := args[0]
 	toAccountID := args[1]
+	// Check if sender and recipient args are the same
 	if fromAccountID == toAccountID {
 		return shim.Error("From account and to account cannot be the same.")
 	}
@@ -465,15 +550,14 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	if err != nil {
 		return shim.Error("Expecting integer as number of tokens to transfer.")
 	}
-
+	// Is it payment for data purchase
 	dataPurchase, err := strconv.ParseBool(args[3])
 	if err != nil {
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
-
-	// If it does not fail then accounts exist
-	// no need to unmarshal
-	fromAccountAsBytes, err := stub.GetState(fromAccountID) //get the account entry from chaincode state
+	// If account retrieval from state does not fail then accounts exist. Just check
+	// No need to unmarshal
+	fromAccountAsBytes, err := stub.GetState(fromAccountID)
 	if err != nil {
 		return shim.Error(err.Error())
 	} else if fromAccountAsBytes == nil {
@@ -485,45 +569,50 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	} else if toAccountAsBytes == nil {
 		return shim.Error(err.Error())
 	}
-
-	// get the latest state of tokens for sender's account
+	// Get the latest state of tokens for sender's account
 	argsTok := []string{fromAccountID}
 	fromAccTokResponse := cc.getAccountTokens(stub, argsTok)
 	if fromAccTokResponse.Status != shim.OK {
 		return shim.Error("Retrieval of account tokens failed: " + fromAccTokResponse.Message)
 	}
-
+	// Extract the values from Payload
 	fromAccTokStr := string(fromAccTokResponse.Payload)
-	// index 0 holds usable tokens and index 1 holds pending tokens ":" is delimiter
-	fromAccTokArr := strings.Split(fromAccTokStr, ":")
-	fromAccTok, err := strconv.ParseInt(fromAccTokArr[0], 10, 64)
+	fromAccTok, err := strconv.ParseInt(fromAccTokStr, 10, 64)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
+	// Check if sender has enough tokens
 	if fromAccTok < tokensToSend {
 		return shim.Error("Not enough tokens on the sender's account")
 	}
-
 	// Index txID and sender accounts ID
 	// this is required for quick lookup and transaction aggregation.
 	txID := stub.GetTxID()
-	var txSenderIDCompositeKey, txRecipientIDCompositeKey string
+	var SenderIDOpTokCompositeKey, recipientIDOpTokCompositeKey, txParticipantsTokCompositeKey string
 	if dataPurchase {
-		txSenderIDCompositeKey, err = stub.CreateCompositeKey("Account~op~PendingTok~TxID", []string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
+		SenderIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		txRecipientIDCompositeKey, err = stub.CreateCompositeKey("Account~op~PendingTok~TxID", []string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		txParticipantsTokCompositeKey, err = stub.CreateCompositeKey("PendingTxID~Sender~Recipient~Tok",
+			[]string{txID, fromAccountID, toAccountID, strconv.FormatInt(tokensToSend, 10)})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
 	} else {
-		txSenderIDCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID", []string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
+		SenderIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{fromAccountID, "-", strconv.FormatInt(tokensToSend, 10), txID})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-		txRecipientIDCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID", []string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		recipientIDOpTokCompositeKey, err = stub.CreateCompositeKey("Account~op~Tok~TxID",
+			[]string{toAccountID, "+", strconv.FormatInt(tokensToSend, 10), txID})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		txParticipantsTokCompositeKey, err = stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",
+			[]string{txID, fromAccountID, toAccountID, strconv.FormatInt(tokensToSend, 10)})
 		if err != nil {
 			return shim.Error(err.Error())
 		}
@@ -531,22 +620,24 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
 	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
-	stub.PutState(txSenderIDCompositeKey, value)
+	stub.PutState(SenderIDOpTokCompositeKey, value)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-
-	stub.PutState(txRecipientIDCompositeKey, value)
+	stub.PutState(recipientIDOpTokCompositeKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	stub.PutState(txParticipantsTokCompositeKey, value)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	// Tx entry saved and indexed
-
 	return shim.Success([]byte(txID))
 }
 
-// updateAccountTokens - updates the account entry in state with the latest values of tokens and pending tokens
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// updateAccountTokens - updates the account entry in state with the latest values of tokens
+////////////////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) updateAccountTokens(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	//       0
@@ -554,49 +645,39 @@ func (cc *Chaincode) updateAccountTokens(stub shim.ChaincodeStubInterface, args 
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting account ID")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
+	// Extract args
 	accountID := args[0]
-
-	//get the account entry from chaincode state
+	// Get the account entry from chaincode state
 	accountAsBytes, err := stub.GetState(accountID)
 	if err != nil {
 		return shim.Error(err.Error())
 	} else if accountAsBytes == nil {
 		return shim.Error(err.Error())
 	}
-
 	var account Account
 	err = json.Unmarshal(accountAsBytes, &account)
 	if err != nil {
 		return shim.Error("Some error: " + err.Error())
 	}
-
-	// get the latest state of tokens for sender's account
+	// Get the latest state of tokens for sender's account
 	argsTok := []string{accountID}
 	accTokResponse := cc.getAccountTokens(stub, argsTok)
 	if accTokResponse.Status != shim.OK {
 		return shim.Error("Retrieval of account tokens failed: " + accTokResponse.Message)
 	}
-
+	// Extract values from Payload
 	accTokStr := string(accTokResponse.Payload)
-	// index 0 holds usable tokens and index 1 holds pending tokens ":" is delimiter
-	accTokArr := strings.Split(accTokStr, ":")
-	accTok, err := strconv.ParseInt(accTokArr[0], 10, 64)
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	accPendingTok, err := strconv.ParseInt(accTokArr[1], 10, 64)
+	accTok, err := strconv.ParseInt(accTokStr, 10, 64)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	// update values of tokens
 	account.Tokens = accTok
-	account.PendingTokens = accPendingTok
-
-	// Marshal objects back
+	// Marshal object
 	accountAsBytesNew, err := json.Marshal(&account)
 	if err != nil {
 		return shim.Error("Some error: " + err.Error())
@@ -616,11 +697,10 @@ func (cc *Chaincode) getAccountTokens(stub shim.ChaincodeStubInterface, args []s
 	var err error
 	//    0
 	// "accountID"
-
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting account ID")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -631,7 +711,6 @@ func (cc *Chaincode) getAccountTokens(stub shim.ChaincodeStubInterface, args []s
 		return shim.Error(err.Error())
 	}
 	defer accountTxIterator.Close()
-
 	// Iterate through result set and compute final amount of tokens
 	var finalTok int64
 	for i := 0; accountTxIterator.HasNext(); i++ {
@@ -640,17 +719,14 @@ func (cc *Chaincode) getAccountTokens(stub shim.ChaincodeStubInterface, args []s
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
 		// Split the composite key into its component parts
 		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
 		// Retrieve the amount of tokens and operation
 		operation := compositeKeyParts[1]
 		tokensStr := compositeKeyParts[2]
-
 		// Convert the tokensStr string and perform the operation
 		tokens, err := strconv.ParseInt(tokensStr, 10, 64)
 		if err != nil {
@@ -666,50 +742,9 @@ func (cc *Chaincode) getAccountTokens(stub shim.ChaincodeStubInterface, args []s
 			return shim.Error(fmt.Sprintf("Unrecognized operation %s", operation))
 		}
 	}
-
-	// Get all account pending transactions for the account ID (for data purchase that did not happen yet)
-	accountPendingTxIterator, err := stub.GetStateByPartialCompositeKey("Account~op~PendingTok~TxID", []string{accountID})
-	if err != nil {
-		return shim.Error(err.Error())
-	}
-	defer accountPendingTxIterator.Close()
-
-	// Iterate through result set and compute final amount of tokens
-	var finalPendingTok int64
-	for i := 0; accountPendingTxIterator.HasNext(); i++ {
-		// Get the next row
-		responseRange2, err := accountPendingTxIterator.Next()
-		if err != nil {
-			return shim.Error(err.Error())
-		}
-
-		// Split the composite key into its component parts
-		_, compositeKeyParts2, err := stub.SplitCompositeKey(responseRange2.Key)
-		if err != nil {
-			return shim.Error(err.Error())
-		}
-
-		// Retrieve the amount of tokens and operation
-		pendingOperation := compositeKeyParts2[1]
-		PendingTokensStr := compositeKeyParts2[2]
-
-		// Convert the tokensStr string and perform the operation
-		pendingTokens, err := strconv.ParseInt(PendingTokensStr, 10, 64)
-		if err != nil {
-			return shim.Error(err.Error())
-		}
-		// calculate the delta
-		switch pendingOperation {
-		case "+":
-			finalPendingTok += pendingTokens
-		case "-":
-			finalPendingTok -= pendingTokens
-		default:
-			return shim.Error(fmt.Sprintf("Unrecognized operation %s", pendingOperation))
-		}
-	}
-	// format int64 to string and separate tokens and pending tokens with ":"
-	res := fmt.Sprint(finalTok) + ":" + fmt.Sprint(finalPendingTok)
+	// format int64 to string
+	res := strconv.FormatInt(finalTok, 10)
+	// Return result
 	return shim.Success([]byte(res))
 }
 
@@ -718,38 +753,37 @@ func (cc *Chaincode) getAccountTokens(stub shim.ChaincodeStubInterface, args []s
 func (cc *Chaincode) getAccountHistoryByID(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	//    0
 	// "accountID"
-
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting AccountID")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-
+	// Extract args
 	accountID := args[0]
-
+	// Get history for the account ID
 	resultsIterator, err := stub.GetHistoryForKey(accountID)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	defer resultsIterator.Close()
-
 	// buffer is a JSON array containing historic values for the account
 	var buffer bytes.Buffer
 	buffer.WriteString("[")
-
+	// for each entry write to buffer
 	for resultsIterator.HasNext() {
 		response, err := resultsIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
-
+		// This create structure of the output
+		// Write transaction ID
 		buffer.WriteString("{\"TxId\":")
 		buffer.WriteString("\"")
 		buffer.WriteString(response.TxId)
 		buffer.WriteString("\"")
-
+		// Write Value
 		buffer.WriteString(", \"Value\":")
 		// if it was a delete operation on given key, then we set the
 		// value to null. Else, we will write the response.Value
@@ -759,111 +793,268 @@ func (cc *Chaincode) getAccountHistoryByID(stub shim.ChaincodeStubInterface, arg
 		} else {
 			buffer.WriteString(string(response.Value))
 		}
-
+		// Write Timestamp of the transaction
 		buffer.WriteString(", \"Timestamp\":")
 		buffer.WriteString("\"")
 		buffer.WriteString(time.Unix(response.Timestamp.Seconds, int64(response.Timestamp.Nanos)).String())
 		buffer.WriteString("\"")
-
-		// was it delete transaction?
+		// Write if it was delete transaction
 		buffer.WriteString(", \"IsDelete\":")
 		buffer.WriteString("\"")
 		buffer.WriteString(strconv.FormatBool(response.IsDelete))
 		buffer.WriteString("\"")
-
+		// Close the single entry
 		buffer.WriteString("}")
 		// Add a comma in front of an array member
 		if resultsIterator.HasNext() {
 			buffer.WriteString(",")
 		}
 	}
+	// Close JSON array
 	buffer.WriteString("]")
-
+	// Return JSON array of history transactions for the account ID
 	return shim.Success(buffer.Bytes())
 }
 
-/*
-// getTxParticipants - returns recepient's account ID of transaction
+// getTxDetails - returns participants' account IDs of transaction and amount
 //////////////////////////////////////////////////////////////////////////////////////////////////////////
-func (cc *Chaincode) getTxParticipants(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) getTxDetails(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	//    0
 	// "txID"
-
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting TxID")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-
+	// Extract args
 	txID := args[0]
-	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey("TxID~Sender~Recipient", []string{txID})
+	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey("TxID~Sender~Recipient~Tok",
+		[]string{txID})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	defer txIDResultsIterator.Close()
-
+	txState := "ValidTx"
 	if !txIDResultsIterator.HasNext() {
-		return shim.Error("Transaction was not found.")
+		// Check if the Tx is not in pending Tx index
+		txIDResultsIterator, err = stub.GetStateByPartialCompositeKey("PendingTxID~Sender~Recipient~Tok",
+			[]string{txID})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// There is not such transaction
+		if !txIDResultsIterator.HasNext() {
+			return shim.Error("Transaction was not found.")
+		}
+		txState = "PendingTx"
 	}
 	responseRange, err := txIDResultsIterator.Next()
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	// get the recipient account ID
+	// Get the values
 	_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	participantsAccountsID := compositeKeyParts[1] + "->" + compositeKeyParts[2]
-
+	tokens := compositeKeyParts[3]
 	if txIDResultsIterator.HasNext() {
 		return shim.Error("Two TxID are same? Impossible!")
 	}
-
-	return shim.Success([]byte(participantsAccountsID))
-
+	// Construct the response string
+	var response []byte
+	response = append(response, []byte(participantsAccountsID)...)
+	response = append(response, []byte("->")...)
+	response = append(response, []byte(tokens)...)
+	response = append(response, []byte("->")...)
+	response = append(response, []byte(txState)...)
+	// Return byte array with Tx details
+	return shim.Success(response)
 }
-*/
-/*
-// checkUsedTx - check if specific transaction is already used. If not then it adds it to the index
+
+// changePendingTx - change pending tokens to normal tokens
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-func (cc *Chaincode) addTxAsUsed(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) changePendingTx(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	//    0
 	// "txID"
-
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting TxID")
 	}
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
-	indexName := "TxID~Used"
+	// Extract args
 	txID := args[0]
-	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey(indexName, []string{txID})
+	pendingTxIDResultsIterator, err := stub.GetStateByPartialCompositeKey("PendingTxID~Sender~Recipient~Tok",
+		[]string{txID})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	defer txIDResultsIterator.Close()
-
-	if txIDResultsIterator.HasNext() {
-		return shim.Error("Transaction was already used for data purchase.")
+	defer pendingTxIDResultsIterator.Close()
+	// If not Tx found then it was already moved as valid Tx
+	if !pendingTxIDResultsIterator.HasNext() {
+		return shim.Error("Transaction was already used or does not exist.")
 	}
-
-	txIDUsedIndexKey, err := stub.CreateCompositeKey(indexName, []string{txID, "TRUE"})
+	// Extract values
+	responseRange, err := pendingTxIDResultsIterator.Next()
 	if err != nil {
 		return shim.Error(err.Error())
 	}
-	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
+	// Get the separate values
+	_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Check if there is another Tx with the same ID
+	if pendingTxIDResultsIterator.HasNext() {
+		return shim.Error("Two TxID are same? Impossible!")
+	}
+	// create composite key to reindex
+	newTxID := stub.GetTxID()
+	txCompositeIndexKey, err := stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",
+		[]string{newTxID, compositeKeyParts[1], compositeKeyParts[2], compositeKeyParts[3]})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Maintain index of pending Tx
+	err = stub.DelState(responseRange.Key)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Add Tx to index "TxID~Sender~Recipient~Tok"
 	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
-	stub.PutState(txIDUsedIndexKey, value)
-	// txId entry saved and indexed
-
-	return shim.Success([]byte("Added as used Tx"))
+	err = stub.PutState(txCompositeIndexKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Create the new composite key for the index  Account~op~Tok~TxID
+	recipientIDOpTokCompositeKey, err := stub.CreateCompositeKey("Account~op~Tok~TxID",
+		[]string{compositeKeyParts[2], "+", compositeKeyParts[3], newTxID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Save to the state
+	err = stub.PutState(recipientIDOpTokCompositeKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Tx changed and indexed in both indexes
+	// Return New Tx ID
+	return shim.Success([]byte(txID))
 }
-*/
+
+func (cc *Chaincode) pruneAccountTx(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var err error
+	//    0
+	// "accountID"
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting account ID")
+	}
+	// Input sanitization
+	if len(args[0]) <= 0 {
+		return shim.Error("1st argument must be a non-empty string")
+	}
+	// Extract args
+	accountID := args[0]
+	// Get all account transactions for the account ID
+	accountTxIterator, err := stub.GetStateByPartialCompositeKey("Account~op~Tok~TxID", []string{accountID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	defer accountTxIterator.Close()
+	// Iterate through result set and compute final amount of tokens
+	var finalTok int64
+	for i := 0; accountTxIterator.HasNext(); i++ {
+		// Get the next row
+		responseRange, err := accountTxIterator.Next()
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Split the composite key into its component parts
+		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Retrieve the amount of tokens and operation
+		operation := compositeKeyParts[1]
+		tokensStr := compositeKeyParts[2]
+		txID := compositeKeyParts[3]
+		// Convert the tokensStr string and perform the operation
+		tokens, err := strconv.ParseInt(tokensStr, 10, 64)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// calculate the delta
+		switch operation {
+		case "+":
+			finalTok += tokens
+		case "-":
+			finalTok -= tokens
+		default:
+			return shim.Error(fmt.Sprintf("Unrecognized operation %s", operation))
+		}
+		// Maintain the index of "Account~op~Tok~TxID"
+		err = stub.DelState(responseRange.Key)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		// Delete the Tx entry in the other index
+		txParticipantsTokIterator, err := stub.GetStateByPartialCompositeKey("TxID~Sender~Recipient~Tok",
+			[]string{txID})
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+		defer txParticipantsTokIterator.Close()
+		if !txParticipantsTokIterator.HasNext() {
+			return shim.Error("PruneAccountTx: There was an entry in one index but no entry in the second index")
+		}
+		// This for loop is for Init accounts that are created with the same TxID
+		// Therefore all must be deleted
+		for txParticipantsTokIterator.HasNext() {
+			// Get the Row
+			responseTxParticipantsRange, err := txParticipantsTokIterator.Next()
+			if err != nil {
+				return shim.Error(err.Error())
+			}
+			// Maintain index of "TxID~Sender~Recipient~Tok"
+			err = stub.DelState(responseTxParticipantsRange.Key)
+			if err != nil {
+				return shim.Error(err.Error())
+			}
+		}
+	}
+	newTxID := stub.GetTxID()
+	// Create the new composite key for the new entry
+	recipientIDOpTokCompositeKey, err := stub.CreateCompositeKey("Account~op~Tok~TxID",
+		[]string{accountID, "+", strconv.FormatInt(finalTok, 10), newTxID})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Create the new composite key for the new entry
+	txParticipantsTokCompositeKey, err := stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",
+		[]string{newTxID, "pruneTx", accountID, strconv.FormatInt(finalTok, 10)})
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Update the index with single Tx that agregates all that were deleted
+	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
+	value := []byte{0x00}
+	err = stub.PutState(recipientIDOpTokCompositeKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	err = stub.PutState(txParticipantsTokCompositeKey, value)
+	if err != nil {
+		return shim.Error(err.Error())
+	}
+	// Index updated
+	// Return new Tx ID
+	return shim.Success([]byte(newTxID))
+}

@@ -70,7 +70,7 @@ func (cc *Chaincode) createData(stub shim.ChaincodeStubInterface, args []string)
 		return shim.Error("Incorrect number of arguments. Expecting 6")
 	}
 
-	// ==== Input sanitation ====
+	// ==== Input sanitization ====
 	fmt.Println("- start create user")
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")

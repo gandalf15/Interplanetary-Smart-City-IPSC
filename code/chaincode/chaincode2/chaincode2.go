@@ -83,7 +83,7 @@ func (cc *Chaincode) createDataEntryAd(stub shim.ChaincodeStubInterface, args []
 		return shim.Error("Incorrect number of arguments. Expecting 8")
 	}
 
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -175,7 +175,7 @@ func (cc *Chaincode) getDataAdByID(stub shim.ChaincodeStubInterface, args []stri
 		return shim.Error("Incorrect number of arguments. Expecting data entry Id to query")
 	}
 
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -202,7 +202,7 @@ func (cc *Chaincode) queryDataByPub(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Incorrect number of arguments. Expecting publisher name")
 	}
 
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -316,7 +316,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Incorrect number of arguments. Expecting 6")
 	}
 
-	// Input sanitation
+	// Input sanitization
 	if len(args[0]) <= 0 {
 		return shim.Error("1st argument must be a non-empty string")
 	}
@@ -388,7 +388,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 
 	// TODO: change this for return value for both participants IDs
 	// invoke chaincode and get the recipient of Tx
-	fTokens := []byte("getTxParticipants")
+	fTokens := []byte("getTxDetails")
 	argsToChaincode := [][]byte{fTokens, []byte(txID)}
 	responseParticipantsIDs := stub.InvokeChaincode(chaincodeTokensName, argsToChaincode, channelTokens)
 	if responseParticipantsIDs.Status != shim.OK {
