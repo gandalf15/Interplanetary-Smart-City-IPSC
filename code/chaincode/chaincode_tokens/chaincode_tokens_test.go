@@ -292,9 +292,14 @@ func Test_sendTokensFast(t *testing.T) {
 	expectedPayload = "1"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
+	// It should not transfer tokens if tokens limit for fast transfer is exceeded
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("11"), []byte("false")}
+	expectedMessage := "Exceeded max number of tokens for fast transaction. Use safe token transfer instead."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
 	// It should not transfer tokens if sender and recipient acc is the same
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("1"), []byte("10"), []byte("false")}
-	expectedMessage := "From account and to account cannot be the same."
+	expectedMessage = "From account and to account cannot be the same."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should not transfer tokens if amount is not a number
@@ -465,7 +470,6 @@ func Test_getTxDetails(t *testing.T) {
 	}
 	// get the TxID and participants
 	args = [][]byte{[]byte("getTxDetails"), res.Payload}
-	fmt.Println(string(res.Payload))
 	expectedPayload = "1->2->10->ValidTx"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
@@ -502,4 +506,42 @@ func Test_changePendingTx(t *testing.T) {
 	args = [][]byte{[]byte("changePendingTx"), res.Payload}
 	expectedMessage := "Transaction was already used or does not exist."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
+}
+
+func Test_pruneAccountTx(t *testing.T) {
+	cc := new(Chaincode)
+	stub := shim.NewMockStub("tokens_init_test", cc)
+
+	// Init 1 account with 10 000 tokens
+	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+
+	// create another acc without tokens
+	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
+	expectedPayload := "Account created"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// It should transfer tokens
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	res := stub.MockInvoke("2", args)
+	if res.Status != shim.OK {
+		fmt.Println("Invoke", args, "failed", string(res.Message))
+		t.Fail()
+	}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	res = stub.MockInvoke("3", args)
+	if res.Status != shim.OK {
+		fmt.Println("Invoke", args, "failed", string(res.Message))
+		t.Fail()
+	}
+	// prune Tx for acc ID
+	args = [][]byte{[]byte("pruneAccountTx"), []byte("2")}
+	res = stub.MockInvoke("4", args)
+	if res.Status != shim.OK {
+		fmt.Println("Invoke", args, "failed", string(res.Message))
+		t.Fail()
+	}
+
+	// get the TxID and participants
+	args = [][]byte{[]byte("getTxDetails"), []byte("4")}
+	expectedPayload = "pruneTx->2->20->ValidTx"
+	checkInvokeResponse(t, stub, args, expectedPayload)
 }
