@@ -29,7 +29,7 @@ type Account struct {
 // from account without immediate verification of available tokens.
 // This provides high throughput required for IoT data an many transactions per sec
 var (
-	limitTokens int64 = 1
+	LimitTokens int64 = 1
 )
 
 // Main function
@@ -49,7 +49,7 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	// create initial ammount of tokens
 	var err error
 	//    		0                	1                     2
-	// "NumberOfAccount" "Initial amount of tokens" "limitTokens"
+	// "NumberOfAccount" "Initial amount of tokens" "LimitTokens"
 	args := stub.GetStringArgs()
 	if len(args) != 3 {
 		return shim.Error(`Incorect number of arguments.
@@ -77,8 +77,8 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	if err != nil || tokens < 0 {
 		return shim.Error("Expecting positiv integer or zero as number of tokens to init.")
 	}
-	limitTokens, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil || limitTokens < 0 {
+	LimitTokens, err = strconv.ParseInt(args[2], 10, 64)
+	if err != nil || LimitTokens < 0 {
 		return shim.Error("Expecting positiv integer or zero as number of limit tokens to init.")
 	}
 	// Create account objects in array
@@ -457,7 +457,7 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting integer as number of tokens to transfer.")
 	}
 	// Check if the amount of tokens does not exceed limit for fast transfer
-	if tokensToSend > limitTokens {
+	if tokensToSend > LimitTokens {
 		return shim.Error("Exceeded max number of tokens for fast transaction. Use safe token transfer instead.")
 	}
 	// Is it payment for data purchase
@@ -524,7 +524,7 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	//       0              1            2          3
 	// "fromAccountId" "toAccountId" "Amount" "dataPurchase"
 	if len(args) != 4 {
-		return shim.Error("Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount")
+		return shim.Error("Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount, dataPurchase")
 	}
 	// Input sanitization
 	if len(args[0]) <= 0 {
