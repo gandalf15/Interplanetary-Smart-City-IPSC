@@ -65,6 +65,7 @@ services:
       - GOPATH=/opt/gopath
       - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
       - CORE_LOGGING_LEVEL=DEBUG
+      #- CORE_LOGGING_LEVEL=ERROR
       - CORE_PEER_ID=cli
       - CORE_PEER_ADDRESS=peer0.city1.zak.codes:7051
       - CORE_PEER_LOCALMSPID=City1MSP
@@ -75,7 +76,6 @@ services:
       - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/city1.zak.codes/users/Admin@city1.zak.codes/msp
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     # command: /bin/bash -c './scripts/script.sh ${CHANNEL_NAME} ${DELAY}; sleep $TIMEOUT'
-    # command: /bin/bash -c './scripts/3channels_cli_commands.sh'
     volumes:
         - /var/run/:/host/var/run/
         # - ~/fabric/fabric-samples/chaincode:/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go

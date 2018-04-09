@@ -150,12 +150,12 @@ func Test_createAccount(t *testing.T) {
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("createAccount"), []byte(""), []byte("acc_name")}
-	expectedMessage = "1st argument must be a non-empty string"
+	expectedMessage = "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("createAccount"), []byte("3"), []byte("")}
-	expectedMessage = "2nd argument must be a non-empty string"
+	expectedMessage = "Argument at position 2 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with less than 2 args
@@ -232,7 +232,7 @@ func Test_getAccountHistoryByID(t *testing.T) {
 
 	// It should fail with empty string arg
 	args := [][]byte{[]byte("getAccountHistoryByID"), []byte("")}
-	expectedMessage := "1st argument must be a non-empty string"
+	expectedMessage := "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than one args
@@ -267,7 +267,7 @@ func Test_queryAccountByName(t *testing.T) {
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("queryAccountByName"), []byte("")}
-	expectedMessage := "1st argument must be a non-empty string"
+	expectedMessage := "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than one args
@@ -309,22 +309,22 @@ func Test_sendTokensFast(t *testing.T) {
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensFast"), []byte(""), []byte("2"), []byte("10"), []byte("false")}
-	expectedMessage = "1st argument must be a non-empty string"
+	expectedMessage = "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte(""), []byte("10"), []byte("false")}
-	expectedMessage = "2nd argument must be a non-empty string"
+	expectedMessage = "Argument at position 2 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte(""), []byte("false")}
-	expectedMessage = "3rd argument must be a non-empty string"
+	expectedMessage = "Argument at position 3 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("")}
-	expectedMessage = "3rd argument must be a non-empty string"
+	expectedMessage = "Argument at position 4 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than 4 args
@@ -385,22 +385,22 @@ func Test_sendTokensSafe(t *testing.T) {
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensSafe"), []byte(""), []byte("2"), []byte("10"), []byte("false")}
-	expectedMessage = "1st argument must be a non-empty string"
+	expectedMessage = "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte(""), []byte("10"), []byte("false")}
-	expectedMessage = "2nd argument must be a non-empty string"
+	expectedMessage = "Argument at position 2 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte(""), []byte("false")}
-	expectedMessage = "3rd argument must be a non-empty string"
+	expectedMessage = "Argument at position 3 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("1"), []byte("")}
-	expectedMessage = "3rd argument must be a non-empty string"
+	expectedMessage = "Argument at position 4 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than 4 args

@@ -195,6 +195,9 @@ chaincodeInvoke () {
 	res=$?
 	cat log.txt
 	verifyResult $res "Invoke execution on PEER$PEER failed "
+	# Extract the returned payload without quotes
+	RETURNED_PAYLOAD=$(cat log.txt | awk -F"payload:" '{print $2}')
+    RETURNED_PAYLOAD=$(echo $RETURNED_PAYLOAD | awk -F">" '{print $1}')
 	echo "===================== Invoke transaction on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' is successful ===================== "
 	echo
 }
@@ -236,126 +239,134 @@ for i in 2 3; do
 	updateAnchorPeers 2
 done
 
-## Install chaincode on Peer0/City1 and Peer2/City2
-echo "--> Installing simple_chaincode on Peer0/City1..."
+## Install chaincode_data on Peer0/City1 and Peer2/City2
+echo "--> Installing chaincode_data on Peer0/City1..."
 echo
-installChaincode 0 simple_chaincode github.com/hyperledger/fabric/chaincode/simple_chaincode
-# echo "Installing simple_chaincode on Peer1/City1..."
-# installChaincode 1 simple_chaincode github.com/hyperledger/fabric/chaincode/simple_chaincode
+installChaincode 0 chaincode_data github.com/hyperledger/fabric/chaincode/chaincode_data
 
-echo "--> Installing chaincode2 on Peer0/City1..."
+# Install chaincode_ad on Peer0/City1...
+echo "--> Installing chaincode_ad on Peer0/City1..."
 echo
-installChaincode 0 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
-# echo "Install chaincode2 on Peer1/City1..."
-# installChaincode 1 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
-echo "--> Install chaincode2 on Peer2/City2..."
-echo
-installChaincode 2 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
-# echo "Install chaincode2 on Peer3/City2..."
-# installChaincode 3 chaincode2 github.com/hyperledger/fabric/chaincode/chaincode2
+installChaincode 0 chaincode_ad github.com/hyperledger/fabric/chaincode/chaincode_ad
 
+# Install chaincode_ad on Peer2/City2...
+echo "--> Install chaincode_ad on Peer2/City2..."
+echo
+installChaincode 2 chaincode_ad github.com/hyperledger/fabric/chaincode/chaincode_ad
+
+# Install chaincode_tokens on Peer0/City1...
 echo "--> Installing chaincode_tokens on Peer0/City1..."
 echo
 installChaincode 0 chaincode_tokens github.com/hyperledger/fabric/chaincode/chaincode_tokens
-# echo "Install chaincode_tokens on Peer1/City1..."
-# installChaincode 1 chaincode_tokens github.com/hyperledger/fabric/chaincode/chaincode_tokens
+
+# Install chaincode_tokens on Peer2/City2...
 echo "--> Installing chaincode_tokens on Peer2/City2..."
 echo
 installChaincode 2 chaincode_tokens github.com/hyperledger/fabric/chaincode/chaincode_tokens
-# echo "Install chaincode_tokens on Peer3/City2..."
-# installChaincode 3 chaincode_tokens github.com/hyperledger/fabric/chaincode/chaincode_tokens
 
-#Instantiate simple_chaincode on Peer0/City1
-echo "--> Instantiating simple_chaincode on Peer0/City1..."
+#Instantiate chaincode_data on Peer0/City1
+echo "--> Instantiating chaincode_data on Peer0/City1..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
 PAYLOAD='{"Args":["2", "1000"]}'
 POLICY="AND ('City1MSP.member')"
-instantiateChaincode 0 simple_chaincode
+instantiateChaincode 0 chaincode_data
 
-#Instantiate chaincode2 on Peer2/City2
-echo "--> Instantiating chaincode2 on Peer2/City2..."
+#Instantiate chaincode_ad on Peer2/City2
+echo "--> Instantiating chaincode_ad on Peer2/City2..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
 PAYLOAD='{"Args":["2", "1000"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
-instantiateChaincode 2 chaincode2
+instantiateChaincode 2 chaincode_ad
 
 #Instantiate chaincode_tokens on Peer2/City2
 echo "--> Instantiating chaincode_tokens on Peer2/City2..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["2", "1000", "10"]}'
+PAYLOAD='{"Args":["100000"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
 instantiateChaincode 2 chaincode_tokens
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke first transaction createDate on City1/peer0 on simple_chaincode ..."
+# Create global variable RETURNED_PAYLOAD that is used in chaincodeInvoke function
+RETURNED_PAYLOAD=""
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction createAccount on Peer0/City1 on chaincode_tokens"
 echo
 sleep 2
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["createAccount", "2", "Test_Account"]}'
+chaincodeInvoke 0 chaincode_tokens
+
+# Invoke on chaincode_data on Peer0/City1
+echo "--> Sending invoke first transaction createData on City1/peer0 on chaincode_data ..."
+echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
 PAYLOAD='{"Args":["createData", "1", "test data", "50", "Celsius", "20180321163750", "marcel"]}'
-chaincodeInvoke 0 simple_chaincode
+chaincodeInvoke 0 chaincode_data
 
-# Invoke on chaincode on Peer0/City1
+# Invoke on chaincode_ad on Peer0/City1
 # Free data
-echo "--> Sending invoke first transaction createDataEntryAd on Peer0/City1 on chaincode2 ..."
+echo "--> Sending invoke first transaction createDataEntryAd on Peer0/City1 on chaincode_ad ..."
 echo
-sleep 2
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-PAYLOAD='{"Args":["createDataEntryAd", "1", "test data", "???", "Celsius", "20180321163750", "marcel", "0", "2"]}'
-chaincodeInvoke 0 chaincode2
+PAYLOAD='{"Args":["createDataEntryAd", "1", "test data", "50", "Celsius", "20180321163750", "marcel", "0", "2"]}'
+chaincodeInvoke 0 chaincode_ad
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke second transaction createDate on City1/peer0 on simple_chaincode ..."
+# Invoke on chaincode_data on Peer0/City1
+echo "--> Sending invoke second transaction createDate on City1/peer0 on chaincode_data ..."
 echo
-sleep 2
 CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
 PAYLOAD='{"Args":["createData", "2", "test data", "100", "Celsius", "20180321160000", "marcel"]}'
-chaincodeInvoke 0 simple_chaincode
+chaincodeInvoke 0 chaincode_data
 
-# Invoke on chaincode on Peer0/City1
+# Invoke on chaincode_ad on Peer0/City1
 # Paid data 10
-echo "--> Sending invoke second transaction createDataEntryAd on Peer0/City1 on chaincode2 ..."
+echo "--> Sending invoke second transaction createDataEntryAd on Peer0/City1 on chaincode_ad ..."
 echo
-sleep 2
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
 PAYLOAD='{"Args":["createDataEntryAd", "2", "test data", "???", "Celsius", "20180321160000", "marcel", "10", "2"]}'
-chaincodeInvoke 0 chaincode2
+chaincodeInvoke 0 chaincode_ad
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke transaction revealFreeData on Peer0/City1 on chaincode2"
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
 echo
-sleep 2
+sleep 3
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "10", "true"]}'
+chaincodeInvoke 0 chaincode_tokens
+
+# Invoke on chaincode_ad on Peer0/City1
+echo "--> Sending invoke transaction revealPaidData on Peer0/City1 on chaincode_ad"
+echo "Using TxID from previous invocation:"
+echo $RETURNED_PAYLOAD
+echo
+sleep 3	# required sleep to wait for previous data to commit and being available
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-PAYLOAD='{"Args":["revealFreeData", "simple_chaincode", "1", "channel1"]}'
-chaincodeInvoke 0 chaincode2
+PAYLOAD='{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", '
+PAYLOAD=$PAYLOAD$RETURNED_PAYLOAD
+PAYLOAD="${PAYLOAD}]}"
+chaincodeInvoke 0 chaincode_ad
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke transaction transferTokens on Peer0/City1 on chaincode_tokens"
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
 echo
-sleep 2
+sleep 3
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "100", "false"]}'
+PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "false"]}'
 chaincodeInvoke 0 chaincode_tokens
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke transaction transferTokens on Peer0/City1 on chaincode_tokens"
-echo
-sleep 2
-CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "true"]}'
-chaincodeInvoke 0 chaincode_tokens
 
 # Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke transaction queryAccountByName on Peer0/City1 on chaincode_tokens"
-echo
-sleep 2
-CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["queryAccountByName", "Init_Account"]}'
-chaincodeInvoke 0 chaincode_tokens
+#echo "--> Sending invoke transaction queryAccountByName on Peer0/City1 on chaincode_tokens"
+#echo
+#CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+#PAYLOAD='{"Args":["queryAccountByName", "Init_Account"]}'
+#chaincodeInvoke 0 chaincode_tokens
 
-# peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode2 -c '{"Args":["revealPaidData", "simple_chaincode", "2", "channel1", "chaincode_tokens", "TxID", "channel3"]}' -C channel2
+
+# peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_ad -c '{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", "txID"]}' -C channel2
 
 #Query on chaincode on Peer0/Org1
 # echo "Querying chaincode on org1/peer0..."

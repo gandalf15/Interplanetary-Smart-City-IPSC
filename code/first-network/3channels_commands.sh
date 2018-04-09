@@ -8,19 +8,37 @@ verifyResult () {
    		exit 1
 	fi
 }
-echo "====== Recompiling chaincodes for channels ======"
-go build --tags nopkcs11 ../chaincode/simple_chaincode/
-res=$?
-verifyResult $res "simple_chaincode compilation failed"
-echo "====== simple_chaincode recompiled ======"
-go build --tags nopkcs11 ../chaincode/chaincode2/
-res=$?
-verifyResult $res "chaincode2 compilation failed"
-echo "====== chaincode2 recompiled ======"
-go build --tags nopkcs11 ../chaincode/chaincode_tokens/
-res=$?
-verifyResult $res "chaincode_tokens compilation failed"
-echo "====== chaincode_tokens recompiled ======"
+
+# Ask user if recompile
+function askRecompile () {
+  read -p "Recompile chaincodes (y/n)? " ans
+	case "$ans" in
+    	y|Y )
+			echo "Recompiling chaincode_data ..."
+			go build --tags nopkcs11 ../chaincode/chaincode_data/
+			res=$?
+			verifyResult $res "chaincode_data compilation failed."
+			echo "-> chaincode_data recompiled successfully."
+			go build --tags nopkcs11 ../chaincode/chaincode_ad/
+			res=$?
+			verifyResult $res "chaincode_ad compilation failed."
+			echo "-> chaincode_ad recompiled successfully."
+			go build --tags nopkcs11 ../chaincode/chaincode_tokens/
+			res=$?
+			verifyResult $res "chaincode_tokens compilation failed."
+			echo "-> chaincode_tokens recompiled successfully."
+    	;;
+    	n|N )
+			echo "Proceeding without recompilation..."
+    	;;
+    	* )
+    		echo "Invalid input try again"
+    		askRecompile
+    	;;
+	esac
+}
+
+askRecompile
 
 /home/marcel/fabric/bin/cryptogen generate --config=./crypto-config.yaml
 export FABRIC_CFG_PATH=$PWD

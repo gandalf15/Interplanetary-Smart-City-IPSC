@@ -1,0 +1,5 @@
+time ./scripts/sendTokensFast-Parallel.sh   
+
+real	0m51.554s
+user	0m56.597s
+sys	0m16.715s
