@@ -68,6 +68,8 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return cc.queryDataByPub(stub, args)
 	} else if function == "revealPaidData" { // invoke other chaincode and reveal values
 		return cc.revealPaidData(stub, args)
+	} else if function == "checkTXState" { // check if TxID is used for data purchase
+		return cc.checkTXState(stub, args)
 	}
 
 	return shim.Error("Received unknown function invocation")
@@ -498,4 +500,32 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	}
 	// No need to index. DataEntryAd already indexed.
 	return shim.Success(dataEntryAdAsBytes)
+}
+
+func (cc *Chaincode) checkTXState(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+	var err error
+	argsCount := 1
+	//    0
+	// "txID"
+	if len(args) != argsCount {
+		return shim.Error("Incorrect number of arguments. Expecting TxID")
+	}
+	// Input sanitization
+	for i := 0; i < argsCount; i++ {
+		if len(args[i]) <= 0 {
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
+		}
+	}
+	// Extract args
+	txID := args[0]
+	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey("Tx~DataEntryID~CreationTime", []string{txID})
+	if err != nil {
+		return shim.Error("Error while getting partial composite key for Tx~DataEntryID~CreationTime: " + err.Error())
+	}
+	defer txIDResultsIterator.Close()
+	// Check if the TxID is already used for data purchase
+	if txIDResultsIterator.HasNext() {
+		return shim.Success([]byte("Used"))
+	}
+	return shim.Success([]byte("Unused"))
 }

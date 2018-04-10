@@ -54,7 +54,7 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	args := stub.GetStringArgs()
 	if len(args) != argsCount {
 		return shim.Error(`Incorect number of arguments.
-			Expectiong number of accounts and tokens for each account to create`)
+			Expectiong number of accounts and tokens to create`)
 	}
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
@@ -442,8 +442,8 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("From account and to account cannot be the same.")
 	}
 	tokensToSend, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		return shim.Error("Expecting integer as number of tokens to transfer.")
+	if err != nil || tokensToSend < 1 {
+		return shim.Error("Expecting positive integer as number of tokens to transfer.")
 	}
 	// Check if the amount of tokens does not exceed limit for fast transfer
 	if tokensToSend > LimitTokens {
@@ -530,8 +530,8 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("From account and to account cannot be the same.")
 	}
 	tokensToSend, err := strconv.ParseInt(args[2], 10, 64)
-	if err != nil {
-		return shim.Error("Expecting integer as number of tokens to transfer.")
+	if err != nil || tokensToSend < 1 {
+		return shim.Error("Expecting positive integer as number of tokens to transfer.")
 	}
 	// Is it payment for data purchase
 	dataPurchase, err := strconv.ParseBool(args[3])
@@ -875,9 +875,9 @@ func (cc *Chaincode) getTxDetails(stub shim.ChaincodeStubInterface, args []strin
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 func (cc *Chaincode) changePendingTx(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
-	argsCount := 1
-	//    0
-	// "txID"
+	argsCount := 3
+	//      0              1           2
+	// "channelAd" "chaincodeAdName" "txID"
 	if len(args) != argsCount {
 		return shim.Error("Incorrect number of arguments. Expecting TxID")
 	}
@@ -888,7 +888,9 @@ func (cc *Chaincode) changePendingTx(stub shim.ChaincodeStubInterface, args []st
 		}
 	}
 	// Extract args
-	txID := args[0]
+	channelAd := args[0]
+	chaincodeAdName := args[1]
+	txID := args[2]
 	pendingTxIDResultsIterator, err := stub.GetStateByPartialCompositeKey("PendingTxID~Sender~Recipient~Tok",
 		[]string{txID})
 	if err != nil {
@@ -912,6 +914,16 @@ func (cc *Chaincode) changePendingTx(stub shim.ChaincodeStubInterface, args []st
 	// Check if there is another Tx with the same ID
 	if pendingTxIDResultsIterator.HasNext() {
 		return shim.Error("changePendingTx: Two TxID are same? Impossible!")
+	}
+	// check if the Tx was already used for data purchase
+	fDataAd := []byte("checkTXState")
+	argsToChaincodeAd := [][]byte{fDataAd, []byte(txID)}
+	responseTXCheck := stub.InvokeChaincode(chaincodeAdName, argsToChaincodeAd, channelAd)
+	if responseTXCheck.Status != shim.OK {
+		return shim.Error("changePendingTx: Error while invoking another chaincode: " + responseTXCheck.Message)
+	}
+	if string(responseTXCheck.Payload) != "Used" {
+		return shim.Error("This TxID was not used for data purchase yet.")
 	}
 	// create composite key to reindex
 	txCompositeIndexKey, err := stub.CreateCompositeKey("TxID~Sender~Recipient~Tok",

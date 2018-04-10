@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	"github.com/hyperledger/fabric/core/chaincode/shim"
@@ -84,43 +83,31 @@ func Test_Init(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// It should Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 	checkState(t, stub, "1",
 		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}")
 
-	// It should Init 4 accounts with 10 000 tokens
+	// It should Init 1 accounts with 0 tokens
 	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInit(t, stub, [][]byte{[]byte("4"), []byte("10000"), []byte("10")})
-	for i := 1; i < 5; i++ {
-		checkState(t, stub, strconv.Itoa(i),
-			"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\""+
-				strconv.Itoa(i)+
-				"\",\"Name\":\"Init_Account\",\"Tokens\":10000}")
-	}
-
-	// It should Init 0 accounts with 0 tokens
-	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInit(t, stub, [][]byte{[]byte("0"), []byte("0"), []byte("10")})
-
-	// It should not Init negative number of accounts
-	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInitFail(t, stub, [][]byte{[]byte("-4"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("0")})
+	checkState(t, stub, "1",
+		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":0}")
 
 	// It should not Init an account with negative number of tokens
 	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInitFail(t, stub, [][]byte{[]byte("1"), []byte("-10"), []byte("10")})
+	checkInitFail(t, stub, [][]byte{[]byte("-10")})
 
-	// It should not Init with less args than 2
+	// It should not Init with less args than 1
 	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInitFail(t, stub, [][]byte{[]byte("1")})
+	checkInitFail(t, stub, [][]byte{})
 
-	// It should not Init with first empty arg
+	// It should not Init with more args than 1
 	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInitFail(t, stub, [][]byte{[]byte(""), []byte("10"), []byte("10")})
+	checkInitFail(t, stub, [][]byte{[]byte("1"), []byte("1")})
 
-	// It should not Init with second empty arg
+	// It should not Init with empty arg
 	stub = shim.NewMockStub("tokens_init_test", cc)
-	checkInitFail(t, stub, [][]byte{[]byte("1"), []byte(""), []byte("10")})
+	checkInitFail(t, stub, [][]byte{[]byte("")})
 }
 
 func Test_InvokeFail(t *testing.T) {
@@ -136,7 +123,7 @@ func Test_createAccount(t *testing.T) {
 	stub := shim.NewMockStub("create_acc_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// It should create account
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
@@ -174,7 +161,7 @@ func Test_deleteAccountByID(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 	// it should delete account that have 0 tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
@@ -192,7 +179,7 @@ func Test_getAccountByID(t *testing.T) {
 	stub := shim.NewMockStub("get_account_test", cc)
 
 	// Init 1 account with 10 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10")})
 
 	// It should get account with ID "1" that was Init
 	args := [][]byte{[]byte("getAccountByID"), []byte("1")}
@@ -221,7 +208,7 @@ func Test_getAccountHistoryByID(t *testing.T) {
 	stub := shim.NewMockStub("get_history_test", cc)
 
 	// Init 1 account with 10 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10")})
 	/*
 		// This cannot be tested because of the limitations of MockStub implementation
 		// It should return history for account ID "1"
@@ -246,7 +233,7 @@ func Test_queryAccountByName(t *testing.T) {
 	stub := shim.NewMockStub("query_acc_test", cc)
 
 	// Init 1 account with 10 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10")})
 
 	// It should return one account
 	args := [][]byte{[]byte("queryAccountByName"), []byte("Init_Account")}
@@ -281,14 +268,14 @@ func Test_sendTokensFast(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	// It should transfer tokens
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false")}
 	expectedPayload = "1"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
@@ -297,23 +284,28 @@ func Test_sendTokensFast(t *testing.T) {
 	expectedMessage := "Exceeded max number of tokens for fast transaction. Use safe token transfer instead."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
+	// It should not transfer negative amount of tokens
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("-1"), []byte("false")}
+	expectedMessage = "Expecting positive integer as number of tokens to transfer."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
 	// It should not transfer tokens if sender and recipient acc is the same
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("1"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("1"), []byte("1"), []byte("false")}
 	expectedMessage = "From account and to account cannot be the same."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should not transfer tokens if amount is not a number
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("lol"), []byte("false")}
-	expectedMessage = "Expecting integer as number of tokens to transfer."
+	expectedMessage = "Expecting positive integer as number of tokens to transfer."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
-	args = [][]byte{[]byte("sendTokensFast"), []byte(""), []byte("2"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte(""), []byte("2"), []byte("1"), []byte("false")}
 	expectedMessage = "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte(""), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte(""), []byte("1"), []byte("false")}
 	expectedMessage = "Argument at position 2 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
@@ -328,7 +320,7 @@ func Test_sendTokensFast(t *testing.T) {
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than 4 args
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("100"), []byte("false"), []byte("lol")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false"), []byte("lol")}
 	expectedMessage = "Incorrect number of arguments. Expecting FromAccountId, ToAccountId, Amount, dataPurchase"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
@@ -357,7 +349,7 @@ func Test_sendTokensSafe(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
@@ -378,9 +370,14 @@ func Test_sendTokensSafe(t *testing.T) {
 	expectedMessage := "From account and to account cannot be the same."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
+	// It should not transfer negative amount of tokens
+	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("-10"), []byte("false")}
+	expectedMessage = "Expecting positive integer as number of tokens to transfer."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
 	// It should not transfer tokens if amount is not a number
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("lol"), []byte("false")}
-	expectedMessage = "Expecting integer as number of tokens to transfer."
+	expectedMessage = "Expecting positive integer as number of tokens to transfer."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
@@ -435,7 +432,7 @@ func Test_getHistoryForAccount(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
@@ -455,14 +452,14 @@ func Test_getTxDetails(t *testing.T) {
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	// It should transfer tokens
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false")}
 	res := stub.MockInvoke("2", args)
 	if res.Status != shim.OK {
 		fmt.Println("Invoke", args, "failed", string(res.Message))
@@ -470,7 +467,7 @@ func Test_getTxDetails(t *testing.T) {
 	}
 	// get the TxID and participants
 	args = [][]byte{[]byte("getTxDetails"), res.Payload}
-	expectedPayload = "1->2->10->ValidTx"
+	expectedPayload = "1->2->1->ValidTx"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should fail with random TxID
@@ -479,19 +476,21 @@ func Test_getTxDetails(t *testing.T) {
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
 
+/*
+// This function cannot be tested because of the MockStub implementation
 func Test_changePendingTx(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	// It should transfer tokens
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("true")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("true")}
 	res := stub.MockInvoke("1", args)
 	if res.Status != shim.OK {
 		fmt.Println("Invoke", args, "failed", string(res.Message))
@@ -507,26 +506,26 @@ func Test_changePendingTx(t *testing.T) {
 	expectedMessage := "Transaction was already used or does not exist."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
-
+*/
 func Test_pruneAccountTx(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
 
 	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("1"), []byte("10000"), []byte("10")})
+	checkInit(t, stub, [][]byte{[]byte("10000")})
 
 	// create another acc without tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	// It should transfer tokens
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false")}
 	res := stub.MockInvoke("2", args)
 	if res.Status != shim.OK {
 		fmt.Println("Invoke", args, "failed", string(res.Message))
 		t.Fail()
 	}
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("10"), []byte("false")}
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false")}
 	res = stub.MockInvoke("3", args)
 	if res.Status != shim.OK {
 		fmt.Println("Invoke", args, "failed", string(res.Message))
@@ -542,6 +541,6 @@ func Test_pruneAccountTx(t *testing.T) {
 
 	// get the TxID and participants
 	args = [][]byte{[]byte("getTxDetails"), []byte("4")}
-	expectedPayload = "pruneTx->2->20->ValidTx"
+	expectedPayload = "pruneTx->2->2->ValidTx"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 }
