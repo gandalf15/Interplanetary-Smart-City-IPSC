@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for (( i = 0; i < 1001; ++i ))
+for (( i = 0; i < 100; ++i ))
 do
     PAYLOAD='{"Args":["createData", "1000", "test throughput data", "10", "units..", "'
     PAYLOAD=$PAYLOAD$i

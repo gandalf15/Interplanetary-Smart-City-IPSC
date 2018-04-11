@@ -64,8 +64,8 @@ func (cc *Chaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 		return cc.getAllDataAdByID(stub, args)
 	} else if function == "getLatestDataAdByID" { // invoke other chaincode and reveal values
 		return cc.getLatestDataAdByID(stub, args)
-	} else if function == "queryDataByPub" { //find data created by publisher using compound key
-		return cc.queryDataByPub(stub, args)
+	} else if function == "getDataAdByPub" { //find data created by publisher using compound key
+		return cc.getDataAdByPub(stub, args)
 	} else if function == "revealPaidData" { // invoke other chaincode and reveal values
 		return cc.revealPaidData(stub, args)
 	} else if function == "checkTXState" { // check if TxID is used for data purchase
@@ -85,19 +85,21 @@ func (cc *Chaincode) createDataEntryAd(stub shim.ChaincodeStubInterface, args []
 	if len(args) != argsCount {
 		return shim.Error("Incorrect number of arguments. Expecting 8")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
-	// Get args
+
+	// Get args and check if they are correct
 	dataEntryID := args[0]
 	description := args[1]
 	value := args[2]
 	unit := args[3]
 	creationTime := args[4]
-	_, err = strconv.ParseUint(creationTime, 10, 64)
+	creationTimeUint, err := strconv.ParseUint(creationTime, 10, 64)
 	if err != nil {
 		return shim.Error("Expecting positiv integer or zero as creation time.")
 	}
@@ -106,15 +108,18 @@ func (cc *Chaincode) createDataEntryAd(stub shim.ChaincodeStubInterface, args []
 	if err != nil {
 		return shim.Error("Expecting positiv integer or zero as price.")
 	}
-	accountNo := args[7]
-	if err != nil {
-		return shim.Error("Expecting integer as price for the data entry.")
+	// Check if price is positive number
+	if price < 0 {
+		return shim.Error("Price cannot be negative number.")
 	}
+	accountNo := args[7]
+
 	// Create composite key
 	idTimeCompositeKey, err := stub.CreateCompositeKey("ID~Time", []string{dataEntryID, creationTime})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	// Check if data entry already exists
 	dataAsBytes, err := stub.GetState(idTimeCompositeKey)
 	if err != nil {
@@ -122,34 +127,31 @@ func (cc *Chaincode) createDataEntryAd(stub shim.ChaincodeStubInterface, args []
 	} else if dataAsBytes != nil {
 		return shim.Error("This data entry already exists: " + dataEntryID + "~" + creationTime)
 	}
-	// Check if price is positive number
-	if price < 0 {
-		return shim.Error("Price cannot be negative number.")
-	}
+
 	// Create data entry object and marshal to JSON
 	recordType := "DATA_ENTRY_AD"
-	creationTimeUint, err := strconv.ParseUint(creationTime, 10, 64)
-	if err != nil {
-		return shim.Error("Error while parse Uint: " + err.Error())
-	}
-	dataEntryAd := &DataEntryAd{DataEntry{recordType, dataEntryID, description, value, unit, creationTimeUint, publisher}, price, accountNo}
+	dataEntryAd := &DataEntryAd{DataEntry{recordType, dataEntryID, description, value,
+		unit, creationTimeUint, publisher}, price, accountNo}
 	dataEntryAdJSONasBytes, err := json.Marshal(dataEntryAd)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	// Save data entry to state
 	err = stub.PutState(idTimeCompositeKey, dataEntryAdJSONasBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	// Index the data to enable publisher-based range queries
 	// An 'index' is a normal key/value entry in state.
-	// The key is a composite key, with the elements that you want to range query on listed first.
+	// The key is a composite key, with the elements that you want to range get on listed first.
 	pubIDIndexKey, err := stub.CreateCompositeKey("Publisher~DataEntryID~CreationTime",
 		[]string{dataEntryAd.Publisher, dataEntryAd.DataEntryID, creationTime})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
 	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	valueNull := []byte{0x00}
@@ -167,14 +169,16 @@ func (cc *Chaincode) getDataAdByIDAndTime(stub shim.ChaincodeStubInterface, args
 	//  0         1
 	// "ID" "creationTime"
 	if len(args) != argsCount {
-		return shim.Error("Incorrect number of arguments. Expecting data entry Id to query")
+		return shim.Error("Incorrect number of arguments. Expecting data entry Id and creationTime")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
+
 	// Get args
 	dataEntryID := args[0]
 	creationTime := args[1]
@@ -182,6 +186,7 @@ func (cc *Chaincode) getDataAdByIDAndTime(stub shim.ChaincodeStubInterface, args
 	if err != nil {
 		return shim.Error("Expecting positiv integer or zero as creation time.")
 	}
+
 	// Create composite key
 	idTimeCompositeKey, err := stub.CreateCompositeKey("ID~Time", []string{dataEntryID, creationTime})
 	if err != nil {
@@ -193,6 +198,7 @@ func (cc *Chaincode) getDataAdByIDAndTime(stub shim.ChaincodeStubInterface, args
 	} else if dataAsBytes == nil {
 		return shim.Error(err.Error())
 	}
+
 	// Return result as bytes
 	return shim.Success(dataAsBytes)
 }
@@ -205,14 +211,16 @@ func (cc *Chaincode) getAllDataAdByID(stub shim.ChaincodeStubInterface, args []s
 	//  0
 	// "ID"
 	if len(args) != argsCount {
-		return shim.Error("Incorrect number of arguments. Expecting data entry Id to query")
+		return shim.Error("Incorrect number of arguments. Expecting data entry Id to get")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
+
 	// Get args
 	dataEntryID := args[0]
 	// Create composite key
@@ -224,29 +232,34 @@ func (cc *Chaincode) getAllDataAdByID(stub shim.ChaincodeStubInterface, args []s
 
 	// Iterate through result set and create JSON array
 	var dataAsBytes []byte
-	for i := 0; idTimeIterator.HasNext(); i++ {
+	for idTimeIterator.HasNext() {
 		// Note that we don't get the value (2nd return variable)
 		responseRange, err := idTimeIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
+
 		// get the dataEntryID and creationTime from ID~Time composite key
 		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
 			return shim.Error(err.Error())
 		}
 		returnedTime := compositeKeyParts[1]
+
 		// Retriev the data from the state
 		response := cc.getDataAdByIDAndTime(stub, []string{dataEntryID, returnedTime})
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of data entry failed: " + response.Message)
 		}
+
+		// Append the retrieved data to the array
 		dataAsBytes = append(dataAsBytes, response.Payload...)
 		if idTimeIterator.HasNext() {
 			dataAsBytes = append(dataAsBytes, []byte(",")...)
 		}
 	}
 
+	// At the end insert and append [] to create JSON array
 	dataAsBytes = append([]byte("["), dataAsBytes...)
 	dataAsBytes = append(dataAsBytes, []byte("]")...)
 
@@ -262,14 +275,16 @@ func (cc *Chaincode) getLatestDataAdByID(stub shim.ChaincodeStubInterface, args 
 	//  0
 	// "ID"
 	if len(args) != argsCount {
-		return shim.Error("Incorrect number of arguments. Expecting data entry Id to query")
+		return shim.Error("Incorrect number of arguments. Expecting data entry Id to get")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
+
 	// Get args
 	dataEntryID := args[0]
 	// Create composite key
@@ -281,12 +296,13 @@ func (cc *Chaincode) getLatestDataAdByID(stub shim.ChaincodeStubInterface, args 
 
 	// Iterate through result set and return the latest data
 	var latestTime uint64
-	for i := 0; idTimeIterator.HasNext(); i++ {
+	for idTimeIterator.HasNext() {
 		// Note that we don't get the value (2nd return variable)
 		responseRange, err := idTimeIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
+
 		// get the dataEntryID and creationTime from ID~Time composite key
 		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
@@ -297,53 +313,61 @@ func (cc *Chaincode) getLatestDataAdByID(stub shim.ChaincodeStubInterface, args 
 		if err != nil {
 			return shim.Error("Retrieved composite key conversion to uint64 failed: " + err.Error())
 		}
+
 		// compare if the time is later than existing one
 		if creationTime > latestTime {
 			latestTime = creationTime
 		}
 	}
+
 	// Retriev the data from the state only if it is the latest entry
 	response := cc.getDataAdByIDAndTime(stub, []string{dataEntryID, strconv.FormatUint(latestTime, 10)})
 	if response.Status != shim.OK {
 		return shim.Error("Retrieval of data entry failed: " + response.Message)
 	}
+
 	// It returns result
 	return shim.Success(response.Payload)
 }
 
-// queryDataByPub - query data entry from chaincode state by publisher
+// getDataAdByPub - get data entry from chaincode state by publisher
 //////////////////////////////////////////////////////////////////////////////////
-func (cc *Chaincode) queryDataByPub(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (cc *Chaincode) getDataAdByPub(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	argsCount := 1
 	//    0
 	// "Publisher"
 	if len(args) != argsCount {
-		return shim.Error("Incorrect number of arguments. Expecting publisher to query")
+		return shim.Error("Incorrect number of arguments. Expecting publisher to get")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
+
 	// Get args
 	publisher := args[0]
-	// Query the Publisher~DataEntryID index by publisher
-	// This will execute a key range query on all keys starting with 'Publisher'
+
+	// get the Publisher~DataEntryID index by publisher
+	// This will execute a key range get on all keys starting with 'Publisher'
 	pubIDResultsIterator, err := stub.GetStateByPartialCompositeKey("Publisher~DataEntryID~CreationTime", []string{publisher})
 	if err != nil {
 		return shim.Error(err.Error())
 	}
 	defer pubIDResultsIterator.Close()
+
 	// Iterate through result set
 	var dataAsBytes []byte
-	for i := 0; pubIDResultsIterator.HasNext(); i++ {
+	for pubIDResultsIterator.HasNext() {
 		// Note that we don't get the value (2nd return variable)
 		responseRange, err := pubIDResultsIterator.Next()
 		if err != nil {
 			return shim.Error(err.Error())
 		}
+
 		// get the publisher and dataEntryID from Publisher~DataEntryID composite key
 		_, compositeKeyParts, err := stub.SplitCompositeKey(responseRange.Key)
 		if err != nil {
@@ -351,17 +375,24 @@ func (cc *Chaincode) queryDataByPub(stub shim.ChaincodeStubInterface, args []str
 		}
 		returnedDataEntryID := compositeKeyParts[1]
 		returnedCreationTime := compositeKeyParts[2]
+
+		// Get the data from the ledger
 		response := cc.getDataAdByIDAndTime(stub, []string{returnedDataEntryID, returnedCreationTime})
 		if response.Status != shim.OK {
 			return shim.Error("Retrieval of data entry failed: " + response.Message)
 		}
+
+		// Append the retrieved data to the array
 		dataAsBytes = append(dataAsBytes, response.Payload...)
 		if pubIDResultsIterator.HasNext() {
 			dataAsBytes = append(dataAsBytes, []byte(",")...)
 		}
 	}
+
+	// At the end insert and append [] to create JSON array
 	dataAsBytes = append([]byte("["), dataAsBytes...)
 	dataAsBytes = append(dataAsBytes, []byte("]")...)
+
 	// It returns results as JSON array
 	return shim.Success(dataAsBytes)
 }
@@ -372,15 +403,16 @@ func (cc *Chaincode) queryDataByPub(stub shim.ChaincodeStubInterface, args []str
 func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var err error
 	argsCount := 7
-	//		0				  1				     2				3				   4			   5                6
+	//      0                 1                 2              3                 4                  5               6
 	// "channelData", "chaincodeDataName", "dataEntryID", "creationTime", "channelTokens", "chaincodeTokensName", "txID",
 	if len(args) != argsCount {
-		return shim.Error("Incorrect number of arguments. Expecting 6")
+		return shim.Error("Incorrect number of arguments. Expecting 7")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
-			return shim.Error("Argument at position" + strconv.Itoa(i+1) + "must be a non-empty string")
+			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
 
@@ -418,22 +450,25 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	}
 	defer txIDResultsIterator.Close()
 
+	// Check if in the index Tx~DataEntryID~CreationTime is the TxID already
 	if txIDResultsIterator.HasNext() {
 		return shim.Error("Transaction was already used for data entry ID: " + dataEntryID + " CreationTime:" + creationTime)
 	}
+
 	// it only indexes if this transaction is commited. Atomicity...
 	// therefore this statement does not have to be at the end.
 	txIDIndexKey, err := stub.CreateCompositeKey("Tx~DataEntryID~CreationTime", []string{txID, dataEntryID, creationTime})
 	if err != nil {
 		return shim.Error("Error while creating composite key for Tx~DataEntryID~CreationTime: " + err.Error())
 	}
+
 	// Save index entry to state. Only the key name is needed, no need to store a duplicate copy of the data.
 	// Note - passing a 'nil' value will effectively delete the key from state, therefore we pass null character as value
 	value := []byte{0x00}
 	stub.PutState(txIDIndexKey, value)
 	// txId entry saved and indexed
 
-	// invoke chaincode and get the recipient of Tx
+	// Invoke chaincode and get the recipient of Tx
 	fTokens := []byte("getTxDetails")
 	argsToChaincodeTokens := [][]byte{fTokens, []byte(txID)}
 	responseTxDetails := stub.InvokeChaincode(chaincodeTokensName, argsToChaincodeTokens, channelTokens)
@@ -456,7 +491,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("The transaction is not Pending as it has to be for data purchase.")
 	}
 
-	// invoke chaincode in channel where data entry with value is
+	// Invoke chaincode in channel where data entry with value is
 	// this prevent from indexing TxID as used if data entry is not present on another channel
 	fData := []byte("getDataByIDAndTime")
 	argsToChaincodeData := [][]byte{fData, []byte(dataEntryID), []byte(creationTime)}
@@ -464,15 +499,17 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	if responseData.Status != shim.OK {
 		return shim.Error(responseData.Message)
 	}
-	// unmarshal data entry
+
+	// Unmarshal data entry
 	var dataEntry DataEntry
 	err = json.Unmarshal(responseData.Payload, &dataEntry)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	/*
 		// This may work in the future if we get function that can invoke PutState into another chaincode
-			// at this stage we know that Tx recipient is correct and data entry present
+			// At this stage we know that Tx recipient is correct and data entry present
 			// invoke chaincode and check/add Tx to the central index as valid/spent
 			fTokens = []byte("changePendingTx")
 			argsToChaincodeTokens = [][]byte{fTokens, []byte(txID)}
@@ -481,6 +518,7 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 				return shim.Error(responseTxchange.Message)
 			}
 	*/
+
 	// Update the value
 	dataEntryAd.Value = dataEntry.Value
 	dataEntryAdAsBytes, err := json.Marshal(dataEntryAd)
@@ -493,11 +531,13 @@ func (cc *Chaincode) revealPaidData(stub shim.ChaincodeStubInterface, args []str
 	if err != nil {
 		return shim.Error("Error while creating composite key for ID~Time: " + err.Error())
 	}
+
 	// Update the ledger
 	err = stub.PutState(idTimeCompositeKey, dataEntryAdAsBytes)
 	if err != nil {
 		return shim.Error(err.Error())
 	}
+
 	// No need to index. DataEntryAd already indexed.
 	return shim.Success(dataEntryAdAsBytes)
 }
@@ -510,12 +550,14 @@ func (cc *Chaincode) checkTXState(stub shim.ChaincodeStubInterface, args []strin
 	if len(args) != argsCount {
 		return shim.Error("Incorrect number of arguments. Expecting TxID")
 	}
+
 	// Input sanitization
 	for i := 0; i < argsCount; i++ {
 		if len(args[i]) <= 0 {
 			return shim.Error("Argument at position " + strconv.Itoa(i+1) + " must be a non-empty string")
 		}
 	}
+
 	// Extract args
 	txID := args[0]
 	txIDResultsIterator, err := stub.GetStateByPartialCompositeKey("Tx~DataEntryID~CreationTime", []string{txID})
@@ -523,9 +565,13 @@ func (cc *Chaincode) checkTXState(stub shim.ChaincodeStubInterface, args []strin
 		return shim.Error("Error while getting partial composite key for Tx~DataEntryID~CreationTime: " + err.Error())
 	}
 	defer txIDResultsIterator.Close()
+
 	// Check if the TxID is already used for data purchase
 	if txIDResultsIterator.HasNext() {
+		// Return that the TxID is used for data purchase in this ledger
 		return shim.Success([]byte("Used"))
 	}
+
+	// Return that the TxID is unused for data purchase in this ledger
 	return shim.Success([]byte("Unused"))
 }

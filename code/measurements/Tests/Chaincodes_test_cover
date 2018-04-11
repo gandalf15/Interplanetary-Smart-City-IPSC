@@ -1,0 +1,11 @@
+PASS
+coverage: 71.3% of statements
+ok  	chaincode/chaincode_tokens	0.018s
+
+PASS
+coverage: 66.3% of statements
+ok  	chaincode/chaincode_ad	0.015s
+
+PASS
+coverage: 84.6% of statements
+ok  	chaincode/chaincode_data	0.014s

@@ -162,16 +162,30 @@ func Test_deleteAccountByID(t *testing.T) {
 
 	// Init 1 account with 10 000 tokens
 	checkInit(t, stub, [][]byte{[]byte("10000")})
-	// it should delete account that have 0 tokens
+	// create account with 0 tokens
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
-	args = [][]byte{[]byte("deleteAccountByID"), []byte("2")}
-	checkInvoke(t, stub, args)
 
-	// it should not be possible to delete an account that have tokens
+	// it should delete account that have 0 tokens
+	args = [][]byte{[]byte("deleteAccountByID"), []byte("2")}
+	expectedPayload = "Account deleted"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// it should not be possible to delete an account that have some tokens
 	args = [][]byte{[]byte("deleteAccountByID"), []byte("1")}
-	checkInvokeFail(t, stub, args)
+	expectedMessage := "Account cannot be deleted. Amount of tokens is not 0."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with empty string arg
+	args = [][]byte{[]byte("deleteAccountByID"), []byte("")}
+	expectedMessage = "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with more than 2 args
+	args = [][]byte{[]byte("deleteAccountByID"), []byte("2"), []byte("2")}
+	expectedMessage = "Incorrect number of arguments. Expecting AccountID."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
 
 func Test_getAccountByID(t *testing.T) {
@@ -228,15 +242,15 @@ func Test_getAccountHistoryByID(t *testing.T) {
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
 
-func Test_queryAccountByName(t *testing.T) {
+func Test_getAccountByName(t *testing.T) {
 	cc := new(Chaincode)
-	stub := shim.NewMockStub("query_acc_test", cc)
+	stub := shim.NewMockStub("get_acc_test", cc)
 
 	// Init 1 account with 10 tokens
 	checkInit(t, stub, [][]byte{[]byte("10")})
 
 	// It should return one account
-	args := [][]byte{[]byte("queryAccountByName"), []byte("Init_Account")}
+	args := [][]byte{[]byte("getAccountByName"), []byte("Init_Account")}
 	expectedPayload := "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10}]"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
@@ -246,19 +260,19 @@ func Test_queryAccountByName(t *testing.T) {
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should return JSON array of two accounts
-	args = [][]byte{[]byte("queryAccountByName"), []byte("Init_Account")}
+	args = [][]byte{[]byte("getAccountByName"), []byte("Init_Account")}
 	expectedPayload = "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10}" +
 		"," +
 		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"Init_Account\",\"Tokens\":0}]"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should fail with empty string arg
-	args = [][]byte{[]byte("queryAccountByName"), []byte("")}
+	args = [][]byte{[]byte("getAccountByName"), []byte("")}
 	expectedMessage := "Argument at position 1 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with more than one args
-	args = [][]byte{[]byte("queryAccountByName"), []byte("1"), []byte("lol")}
+	args = [][]byte{[]byte("getAccountByName"), []byte("1"), []byte("lol")}
 	expectedMessage = "Incorrect number of arguments. Expecting name of account holder"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
@@ -274,8 +288,37 @@ func Test_sendTokensFast(t *testing.T) {
 	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
 	expectedPayload := "Account created"
 	checkInvokeResponse(t, stub, args, expectedPayload)
-	// It should transfer tokens
+	// It should transfer tokens that are not for data purchase immediatelly
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("false")}
+	expectedPayload = "1"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// Check the result
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9999"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
+	expectedPayload = "1"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// It should transfer tokens that are for data purchase and create pendingTx
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("true")}
+	expectedPayload = "2"
+	res := stub.MockInvoke("2", args)
+	if res.Status != shim.OK {
+		fmt.Println("Invoke", args, "failed", string(res.Message))
+		t.Fail()
+	}
+	if string(res.Payload) != expectedPayload {
+		fmt.Println("Expected payload:", expectedPayload)
+		fmt.Println("Instead got this:", string(res.Payload))
+		t.Fail()
+	}
+	// Check the result
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9998"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// It is as pending therefore not available for account 2
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
 	expectedPayload = "1"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
@@ -297,6 +340,11 @@ func Test_sendTokensFast(t *testing.T) {
 	// It should not transfer tokens if amount is not a number
 	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("lol"), []byte("false")}
 	expectedMessage = "Expecting positive integer as number of tokens to transfer."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should not transfer tokens if dataPurchase param is not bool value
+	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("lol")}
+	expectedMessage = "Expecting boolean value. If this transfer is for data purchase or not."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
@@ -359,6 +407,35 @@ func Test_sendTokensSafe(t *testing.T) {
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("100"), []byte("false")}
 	expectedPayload = "1"
 	checkInvokeResponse(t, stub, args, expectedPayload)
+	// Check the result
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9900"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
+	expectedPayload = "100"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// It should transfer tokens that are for data purchase and create pendingTx
+	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("100"), []byte("true")}
+	expectedPayload = "2"
+	res := stub.MockInvoke("2", args)
+	if res.Status != shim.OK {
+		fmt.Println("Invoke", args, "failed", string(res.Message))
+		t.Fail()
+	}
+	if string(res.Payload) != expectedPayload {
+		fmt.Println("Expected payload:", expectedPayload)
+		fmt.Println("Instead got this:", string(res.Payload))
+		t.Fail()
+	}
+	// Check the result
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9800"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// It is as pending therefore not available for account 2
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
+	expectedPayload = "100"
+	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should not transfer tokens that are not available
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("2"), []byte("1"), []byte("101"), []byte("false")}
@@ -378,6 +455,11 @@ func Test_sendTokensSafe(t *testing.T) {
 	// It should not transfer tokens if amount is not a number
 	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("lol"), []byte("false")}
 	expectedMessage = "Expecting positive integer as number of tokens to transfer."
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should not transfer tokens if dataPurchase param is not bool value
+	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("1"), []byte("lol")}
+	expectedMessage = "Expecting boolean value. If this transfer is for data purchase or not."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
 	// It should fail with empty string arg
@@ -474,10 +556,19 @@ func Test_getTxDetails(t *testing.T) {
 	args = [][]byte{[]byte("getTxDetails"), []byte("-4863asfaebh")}
 	expectedMessage := "Transaction was not found."
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with empty string arg
+	args = [][]byte{[]byte("getTxDetails"), []byte("")}
+	expectedMessage = "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with more than one args
+	args = [][]byte{[]byte("getTxDetails"), []byte("1"), []byte("lol")}
+	expectedMessage = "Incorrect number of arguments. Expecting TxID"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
 
-/*
-// This function cannot be tested because of the MockStub implementation
+// For this function we cannot test more because of the MockStub limitations
 func Test_changePendingTx(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
@@ -485,28 +576,36 @@ func Test_changePendingTx(t *testing.T) {
 	// Init 1 account with 10 000 tokens
 	checkInit(t, stub, [][]byte{[]byte("10000")})
 
-	// create another acc without tokens
-	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
-	expectedPayload := "Account created"
-	checkInvokeResponse(t, stub, args, expectedPayload)
-	// It should transfer tokens
-	args = [][]byte{[]byte("sendTokensFast"), []byte("1"), []byte("2"), []byte("1"), []byte("true")}
-	res := stub.MockInvoke("1", args)
-	if res.Status != shim.OK {
-		fmt.Println("Invoke", args, "failed", string(res.Message))
-		t.Fail()
-	}
-	// get the TxID and change it as valud from pending
-	args = [][]byte{[]byte("changePendingTx"), res.Payload}
-	expectedPayload = "1"
-	checkInvokeResponse(t, stub, args, expectedPayload)
+	// It should fail to changePendingTx with less than 3 args
+	args := [][]byte{[]byte("changePendingTx"), []byte("channel1"), []byte("chaincode_ad")}
+	expectedMessage := "Incorrect number of arguments. Expecting 3"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
 
-	// Do the same but now it should fail because TxID was processed
-	args = [][]byte{[]byte("changePendingTx"), res.Payload}
-	expectedMessage := "Transaction was already used or does not exist."
+	// It should fail to changePendingTx with more than 3 args
+	args = [][]byte{[]byte("changePendingTx"), []byte("channel1"), []byte("chaincode_ad"),
+		[]byte("TxID-1"), []byte("extra_arg")}
+	expectedMessage = "Incorrect number of arguments. Expecting 3"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail to changePendingTx with empty string arg
+	args = [][]byte{[]byte("changePendingTx"), []byte(""), []byte("chaincode_ad"),
+		[]byte("TxID-1")}
+	expectedMessage = "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail to changePendingTx with empty string arg
+	args = [][]byte{[]byte("changePendingTx"), []byte("channel1"), []byte(""),
+		[]byte("TxID-1")}
+	expectedMessage = "Argument at position 2 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail to changePendingTx with empty string arg
+	args = [][]byte{[]byte("changePendingTx"), []byte("channel1"), []byte("chaincode_ad"),
+		[]byte("")}
+	expectedMessage = "Argument at position 3 must be a non-empty string"
 	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }
-*/
+
 func Test_pruneAccountTx(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
@@ -543,4 +642,121 @@ func Test_pruneAccountTx(t *testing.T) {
 	args = [][]byte{[]byte("getTxDetails"), []byte("4")}
 	expectedPayload = "pruneTx->2->2->ValidTx"
 	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// It should fail with empty string arg
+	args = [][]byte{[]byte("pruneAccountTx"), []byte("")}
+	expectedMessage := "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with more than one args
+	args = [][]byte{[]byte("pruneAccountTx"), []byte("1"), []byte("lol")}
+	expectedMessage = "Incorrect number of arguments. Expecting account ID"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+}
+
+func Test_updateAccountTokens(t *testing.T) {
+	cc := new(Chaincode)
+	stub := shim.NewMockStub("tokens_init_test", cc)
+
+	// Init 1 account with 10 000 tokens
+	checkInit(t, stub, [][]byte{[]byte("10000")})
+
+	// create another acc without tokens
+	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
+	expectedPayload := "Account created"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// send tokens to account 2
+	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("100"), []byte("false")}
+	expectedPayload = "1"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// accounts should have the initial value because they were not updated yet
+	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":0}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// Check if Tx was successful
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9900"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// Check if Tx was successful
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
+	expectedPayload = "100"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// Update the amount of tokens on account 1
+	args = [][]byte{[]byte("updateAccountTokens"), []byte("1")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":9900}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// Update the amount of tokens on account 2
+	args = [][]byte{[]byte("updateAccountTokens"), []byte("2")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":100}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// accounts should have the updated value
+	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":9900}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":100}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// It should fail with empty string arg
+	args = [][]byte{[]byte("updateAccountTokens"), []byte("")}
+	expectedMessage := "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with more than one args
+	args = [][]byte{[]byte("updateAccountTokens"), []byte("1"), []byte("lol")}
+	expectedMessage = "Incorrect number of arguments. Expecting account ID"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+}
+
+func Test_getAccountTokens(t *testing.T) {
+	cc := new(Chaincode)
+	stub := shim.NewMockStub("tokens_init_test", cc)
+
+	// Init 1 account with 10 000 tokens
+	checkInit(t, stub, [][]byte{[]byte("10000")})
+
+	// create another acc without tokens
+	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
+	expectedPayload := "Account created"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// send tokens to account 2
+	args = [][]byte{[]byte("sendTokensSafe"), []byte("1"), []byte("2"), []byte("100"), []byte("false")}
+	expectedPayload = "1"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// accounts should have the initial value because they were not updated yet
+	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":0}"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// Check if Tx was successful
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1")}
+	expectedPayload = "9900"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+	// Check if Tx was successful
+	args = [][]byte{[]byte("getAccountTokens"), []byte("2")}
+	expectedPayload = "100"
+	checkInvokeResponse(t, stub, args, expectedPayload)
+
+	// It should fail with empty string arg
+	args = [][]byte{[]byte("getAccountTokens"), []byte("")}
+	expectedMessage := "Argument at position 1 must be a non-empty string"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
+
+	// It should fail with more than one args
+	args = [][]byte{[]byte("getAccountTokens"), []byte("1"), []byte("lol")}
+	expectedMessage = "Incorrect number of arguments. Expecting account ID"
+	checkInvokeResponseFail(t, stub, args, expectedMessage)
 }

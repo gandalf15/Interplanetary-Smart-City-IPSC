@@ -21,7 +21,7 @@ echo "Channel name : "$CHANNEL_NAME_BASE"1"
 echo "Channel name : "$CHANNEL_NAME_BASE"2"
 echo "Channel name : "$CHANNEL_NAME_BASE"3"
 
-# verify the result of the end-to-end test
+# verify the result
 verifyResult () {
 	if [ $1 -ne 0 ] ; then
 		echo "!!!!!!!!!!!!!!! "$2" !!!!!!!!!!!!!!!!"
