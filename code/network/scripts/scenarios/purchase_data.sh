@@ -7,14 +7,13 @@ echo "\___ \    | |     / _ \   | |_) |   | |  "
 echo " ___) |   | |    / ___ \  |  _ <    | |  "
 echo "|____/    |_|   /_/   \_\ |_| \_\   |_|  "
 echo
+echo "////// Scenario = 'Purchase Data' ///////"
 echo
 CHANNEL_NAME_BASE="$1"
 DELAY="$2"
 : ${CHANNEL_NAME_BASE:="channel"}
-: ${DELAY:=0}
+: ${DELAY:=3}
 : ${TIMEOUT:="2"}
-COUNTER=1
-MAX_RETRY=5
 ORDERER_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem
 
 echo "Channel name : "$CHANNEL_NAME_BASE"1"
@@ -57,11 +56,12 @@ setGlobals () {
 	env |grep CORE
 }
 
-chaincodeQuery () {
+chaincodeQueryCheck () {
   PEER=$1
   CC_NAME=$2
-  EXPECTED_VALUE=$4
+  EXPECTED_VALUE=$3
   echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' ... ===================== "
+  echo "--> Expected value: ${EXPECTED_VALUE}"
   setGlobals $PEER
   local rc=1
   local starttime=$(date +%s)
@@ -74,7 +74,7 @@ chaincodeQuery () {
      echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
      peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
      test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
-     test "$VALUE" = "${EXPECTED_VALUE}" && let rc=0
+     test "$VALUE" = "$EXPECTED_VALUE" && let rc=0
   done
   echo
   cat log.txt
@@ -82,7 +82,36 @@ chaincodeQuery () {
 	echo "===================== Query on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' is successful ===================== "
   else
 	echo "!!!!!!!!!!!!!!! Query result on PEER$PEER is INVALID !!!!!!!!!!!!!!!!"
-        echo "================== ERROR !!! FAILED to execute End-2-End Scenario =================="
+        echo "================== ERROR !!! FAILED to execute Purchase Data Scenario =================="
+	echo
+	exit 1
+  fi
+}
+
+chaincodeQuery () {
+  PEER=$1
+  CC_NAME=$2
+  echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' ... ===================== "
+  setGlobals $PEER
+  local rc=1
+  local starttime=$(date +%s)
+
+  # continue to poll
+  # we either get a successful response, or reach TIMEOUT
+  while test "$(($(date +%s)-starttime))" -lt "$TIMEOUT" -a $rc -ne 0
+  do
+     sleep $DELAY
+     echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
+     peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
+     test $? -eq 0 && RETURNED_QUERY=$(cat log.txt | awk '/Query Result/ {print $NF}') && let rc=0
+  done
+  echo
+  cat log.txt
+  if test $rc -eq 0 ; then
+	echo "===================== Query on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' is successful ===================== "
+  else
+	echo "!!!!!!!!!!!!!!! Query result on PEER$PEER is INVALID !!!!!!!!!!!!!!!!"
+        echo "================== ERROR !!! FAILED to execute Purchase Data Scenario =================="
 	echo
 	exit 1
   fi
@@ -112,25 +141,103 @@ chaincodeInvoke () {
 # Create global variable RETURNED_PAYLOAD that is used in chaincodeInvoke function
 RETURNED_PAYLOAD=""
 
-# Invoke on chaincode on Peer0/City1
-echo "--> Sending invoke transaction transferTokens on Peer0/City1 on chaincode_tokens"
+# Invoke on chaincode_data on Peer0/City1
+echo "--> Sending invoke second transaction createDate on City1/peer0 on chaincode_data ..."
+echo "--> Creating data on blockchain 1 <--"
 echo
-#sleep 1
+CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
+CREATION_TIME=$(date +%s)
+PAYLOAD='{"Args":["createData", "2", "test data", "100", "Celsius", "'
+PAYLOAD=$PAYLOAD$CREATION_TIME
+ENDING='", "marcel"]}'
+PAYLOAD=$PAYLOAD$ENDING
+
+chaincodeInvoke 0 chaincode_data
+
+# Invoke on chaincode_ad on Peer0/City1
+# Paid data 10
+echo "--> Sending invoke second transaction createDataEntryAd on Peer0/City1 on chaincode_ad ..."
+echo "--> Creating data advertisement on blockchain 2 <--"
+echo
+CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
+PAYLOAD='{"Args":["createDataEntryAd", "2", "test data", "???", "Celsius", "'
+PAYLOAD=$PAYLOAD$CREATION_TIME
+ENDING='", "marcel", "10", "2"]}'
+PAYLOAD=$PAYLOAD$ENDING
+chaincodeInvoke 0 chaincode_ad
+
+# Get the current amount of tokens on account 1
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["getAccountTokens", "1"]}'
+chaincodeQuery 0 chaincode_tokens
+ACC1_TOKENS=$RETURNED_QUERY
+
+# Get the current amount of tokens on account 1
+PAYLOAD='{"Args":["getAccountTokens", "2"]}'
+chaincodeQuery 0 chaincode_tokens
+ACC2_TOKENS=$RETURNED_QUERY
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
+echo "--> Sending 10 tokens for data purchase from account 1 to account 2 on blockchain 3 <--"
+echo
+sleep $DELAY
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
 PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "10", "true"]}'
 chaincodeInvoke 0 chaincode_tokens
 
-# Invoke on chaincode on Peer0/City1
+# Query on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+echo "--> Even though tokens were sent to account 2, they are not available until data retrieved <--"
+echo
+sleep $DELAY # required sleep to wait for previous data to commit and being available
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["getAccountTokens", "2"]}'
+chaincodeQueryCheck 0 chaincode_tokens $ACC2_TOKENS
+
+# Query on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+echo "--> Check if tokens were subtracted from account 1 <--"
+echo
+sleep $DELAY # required sleep to wait for previous data to commit and being available
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["getAccountTokens", "1"]}'
+chaincodeQueryCheck 0 chaincode_tokens $(( $ACC1_TOKENS - 10 ))
+
+# Invoke on chaincode_ad on Peer0/City1
 echo "--> Sending invoke transaction revealPaidData on Peer0/City1 on chaincode_ad"
-echo "Using TxID from previous invocation:"
+echo "--> Using TxID from tokens transfer as a ticket to reveal paid data <--"
 echo $RETURNED_PAYLOAD
 echo
-sleep 2	# required sleep to wait for previous data to commit and being available
+TXID=$RETURNED_PAYLOAD
+sleep $DELAY	# required sleep to wait for previous data to commit and being available
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-PAYLOAD='{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", '
-PAYLOAD=$PAYLOAD$RETURNED_PAYLOAD
+PAYLOAD='{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "'
+PAYLOAD=$PAYLOAD$CREATION_TIME
+MIDDLE='", "channel3", "chaincode_tokens", '
+PAYLOAD=$PAYLOAD$MIDDLE$RETURNED_PAYLOAD
 PAYLOAD="${PAYLOAD}]}"
 chaincodeInvoke 0 chaincode_ad
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+echo "--> Now data entry has revealed value and Blocked tokens can be changed to available <--"
+echo
+sleep $DELAY # required sleep to wait for previous data to commit and being available
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["changePendingTx", "channel2", "chaincode_ad", '
+PAYLOAD=$PAYLOAD$TXID
+PAYLOAD="${PAYLOAD}]}"
+chaincodeInvoke 0 chaincode_tokens
+
+# Query on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+echo "--> Check if tokens are now available on account 2 <--"
+echo
+sleep $DELAY # required sleep to wait for previous data to commit and being available
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["getAccountTokens", "2"]}'
+chaincodeQueryCheck 0 chaincode_tokens $(( $ACC2_TOKENS + 10 ))
 
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_ad -c '{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", "txID"]}' -C channel2
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_tokens -c '{"Args":["getAccountTokens", "1"]}' -C channel3
@@ -141,6 +248,8 @@ echo "| ____| | \ | | |  _ \  "
 echo "|  _|   |  \| | | | | | "
 echo "| |___  | |\  | | |_| | "
 echo "|_____| |_| \_| |____/  "
+echo
+echo "////// Scenario = 'Purchase Data' executed successfully ///////"
 echo
 
 exit 0

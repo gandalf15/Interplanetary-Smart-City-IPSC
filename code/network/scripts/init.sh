@@ -7,12 +7,12 @@ echo "\___ \    | |     / _ \   | |_) |   | |  "
 echo " ___) |   | |    / ___ \  |  _ <    | |  "
 echo "|____/    |_|   /_/   \_\ |_| \_\   |_|  "
 echo
-echo "Build 3 channels network woth 4 peers"
+echo "//// Build 3 channels network with 4 peers ////"
 echo
 CHANNEL_NAME_BASE="$1"
 DELAY="$2"
 : ${CHANNEL_NAME_BASE:="channel"}
-: ${DELAY:=0}
+: ${DELAY:=1}
 : ${TIMEOUT:="2"}
 COUNTER=1
 MAX_RETRY=5
@@ -150,37 +150,6 @@ instantiateChaincode () {
 	echo
 }
 
-chaincodeQuery () {
-  PEER=$1
-  CC_NAME=$2
-  EXPECTED_VALUE=$4
-  echo "===================== Querying on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' ... ===================== "
-  setGlobals $PEER
-  local rc=1
-  local starttime=$(date +%s)
-
-  # continue to poll
-  # we either get a successful response, or reach TIMEOUT
-  while test "$(($(date +%s)-starttime))" -lt "$TIMEOUT" -a $rc -ne 0
-  do
-     sleep $DELAY
-     echo "Attempting to Query PEER$PEER ...$(($(date +%s)-starttime)) secs"
-     peer chaincode query -C $CHANNEL_NAME -n $CC_NAME -c "${PAYLOAD}" >&log.txt
-     test $? -eq 0 && VALUE=$(cat log.txt | awk '/Query Result/ {print $NF}')
-     test "$VALUE" = "${EXPECTED_VALUE}" && let rc=0
-  done
-  echo
-  cat log.txt
-  if test $rc -eq 0 ; then
-	echo "===================== Query on PEER$PEER on channel '$CHANNEL_NAME' and chaincode '$CC_NAME' is successful ===================== "
-  else
-	echo "!!!!!!!!!!!!!!! Query result on PEER$PEER is INVALID !!!!!!!!!!!!!!!!"
-        echo "================== ERROR !!! FAILED to execute End-2-End Scenario =================="
-	echo
-	exit 1
-  fi
-}
-
 chaincodeInvoke () {
 	PEER=$1
 	CC_NAME=$2
@@ -268,7 +237,7 @@ installChaincode 2 chaincode_tokens github.com/hyperledger/fabric/chaincode/chai
 echo "--> Instantiating chaincode_data on Peer0/City1..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
-PAYLOAD='{"Args":["2", "1000"]}'
+PAYLOAD='{"Args":["1"]}'
 POLICY="AND ('City1MSP.member')"
 instantiateChaincode 0 chaincode_data
 
@@ -276,7 +245,7 @@ instantiateChaincode 0 chaincode_data
 echo "--> Instantiating chaincode_ad on Peer2/City2..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-PAYLOAD='{"Args":["2", "1000"]}'
+PAYLOAD='{"Args":["1"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
 instantiateChaincode 2 chaincode_ad
 
@@ -290,14 +259,6 @@ instantiateChaincode 2 chaincode_tokens
 
 # Create global variable RETURNED_PAYLOAD that is used in chaincodeInvoke function
 RETURNED_PAYLOAD=""
-
-# Invoke on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction createAccount on Peer0/City1 on chaincode_tokens"
-echo
-sleep 3
-CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["createAccount", "2", "Test_Account"]}'
-chaincodeInvoke 0 chaincode_tokens
 
 # Invoke on chaincode_data on Peer0/City1
 echo "--> Sending invoke first transaction createData on City1/peer0 on chaincode_data ..."
@@ -314,75 +275,15 @@ CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
 PAYLOAD='{"Args":["createDataEntryAd", "1", "test data", "50", "Celsius", "20180321163750", "marcel", "0", "2"]}'
 chaincodeInvoke 0 chaincode_ad
 
-# Invoke on chaincode_data on Peer0/City1
-echo "--> Sending invoke second transaction createDate on City1/peer0 on chaincode_data ..."
-echo
-CHANNEL_NAME="${CHANNEL_NAME_BASE}1"
-PAYLOAD='{"Args":["createData", "2", "test data", "100", "Celsius", "20180321160000", "marcel"]}'
-chaincodeInvoke 0 chaincode_data
-
-# Invoke on chaincode_ad on Peer0/City1
-# Paid data 10
-echo "--> Sending invoke second transaction createDataEntryAd on Peer0/City1 on chaincode_ad ..."
-echo
-CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-PAYLOAD='{"Args":["createDataEntryAd", "2", "test data", "???", "Celsius", "20180321160000", "marcel", "10", "2"]}'
-chaincodeInvoke 0 chaincode_ad
-
 # Invoke on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
+echo "--> Sending invoke transaction createAccount on Peer0/City1 on chaincode_tokens"
 echo
-sleep 2
+sleep 3
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "10", "true"]}'
+PAYLOAD='{"Args":["createAccount", "2", "Test_Account"]}'
 chaincodeInvoke 0 chaincode_tokens
 
-# Invoke on chaincode_ad on Peer0/City1
-#echo "--> Sending invoke transaction revealPaidData on Peer0/City1 on chaincode_ad"
-#echo "Using TxID from previous invocation:"
-#echo $RETURNED_PAYLOAD
-#echo
-#sleep 3	# required sleep to wait for previous data to commit and being available
-#CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
-#PAYLOAD='{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", '
-#PAYLOAD=$PAYLOAD$RETURNED_PAYLOAD
-#PAYLOAD="${PAYLOAD}]}"
-#chaincodeInvoke 0 chaincode_ad
-
-# Invoke on chaincode_tokens on Peer0/City1
-#echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
-#echo
-#sleep 3
-#CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-#PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "false"]}'
-#chaincodeInvoke 0 chaincode_tokens
-
-
-# Invoke on chaincode on Peer0/City1
-#echo "--> Sending invoke transaction queryAccountByName on Peer0/City1 on chaincode_tokens"
-#echo
-#CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-#PAYLOAD='{"Args":["queryAccountByName", "Init_Account"]}'
-#chaincodeInvoke 0 chaincode_tokens
-
-
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_ad -c '{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", "txID"]}' -C channel2
-
-#Query on chaincode on Peer0/Org1
-# echo "Querying chaincode on org1/peer0..."
-# chaincodeQuery 0 100
-
-## Install chaincode on Peer3/Org2
-# echo "Installing chaincode on org2/peer3..."
-# installChaincode 3
-
-#Query on chaincode on Peer3/Org2, check if the result is 90
-# echo "Querying chaincode on org2/peer3..."
-# chaincodeQuery 3 90
-
-echo
-echo "========= All GOOD, 3 channels network is created =========== "
-echo
 
 echo
 echo " _____   _   _   ____   "
@@ -390,6 +291,8 @@ echo "| ____| | \ | | |  _ \  "
 echo "|  _|   |  \| | | | | | "
 echo "| |___  | |\  | | |_| | "
 echo "|_____| |_| \_| |____/  "
+echo
+echo "//// Build 3 channels network with 4 peers successfully ////"
 echo
 
 exit 0

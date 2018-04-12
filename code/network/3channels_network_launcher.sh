@@ -103,6 +103,15 @@ if [ "$MODE" == "up" ]; then
 	fi
 elif [ "$MODE" == "down" ]; then
 	networkDown
+	rm -f ./scripts/scenarios/TxIDs.txt
+	res=$?
+	verifyResult $res "Cannot remove ./scripts/scenarios/TxIDs.txt"
+	rm -f ./scripts/scenarios/logTxID.txt
+	res=$?
+	verifyResult $res "Cannot remove ./scripts/scenarios/logTxID.txt"
+	rm -f ./log.txt
+	res=$?
+	verifyResult $res "Cannot remove /scripts/scenarios/log.txt"
 else
 	echo "Wrong -m arg"
 fi
