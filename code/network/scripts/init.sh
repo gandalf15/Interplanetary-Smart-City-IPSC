@@ -253,7 +253,7 @@ instantiateChaincode 2 chaincode_ad
 echo "--> Instantiating chaincode_tokens on Peer2/City2..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["100000"]}'
+PAYLOAD='{"Args":["1000000"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
 instantiateChaincode 2 chaincode_tokens
 
