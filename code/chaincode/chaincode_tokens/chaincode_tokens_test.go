@@ -85,13 +85,13 @@ func Test_Init(t *testing.T) {
 	// It should Init 1 account with 10 000 tokens
 	checkInit(t, stub, [][]byte{[]byte("10000")})
 	checkState(t, stub, "1",
-		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}")
+		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10000}")
 
 	// It should Init 1 accounts with 0 tokens
 	stub = shim.NewMockStub("tokens_init_test", cc)
 	checkInit(t, stub, [][]byte{[]byte("0")})
 	checkState(t, stub, "1",
-		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":0}")
+		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":0}")
 
 	// It should not Init an account with negative number of tokens
 	stub = shim.NewMockStub("tokens_init_test", cc)
@@ -197,7 +197,7 @@ func Test_getAccountByID(t *testing.T) {
 
 	// It should get account with ID "1" that was Init
 	args := [][]byte{[]byte("getAccountByID"), []byte("1")}
-	expectedPayload := "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10}"
+	expectedPayload := "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should fail with empty string arg
@@ -251,7 +251,7 @@ func Test_getAccountByName(t *testing.T) {
 
 	// It should return one account
 	args := [][]byte{[]byte("getAccountByName"), []byte("Init_Account")}
-	expectedPayload := "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10}]"
+	expectedPayload := "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10}]"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// create second account
@@ -261,9 +261,9 @@ func Test_getAccountByName(t *testing.T) {
 
 	// It should return JSON array of two accounts
 	args = [][]byte{[]byte("getAccountByName"), []byte("Init_Account")}
-	expectedPayload = "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10}" +
+	expectedPayload = "[{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10}" +
 		"," +
-		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"Init_Account\",\"Tokens\":0}]"
+		"{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":0}]"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should fail with empty string arg
@@ -673,10 +673,10 @@ func Test_updateAccountTokens(t *testing.T) {
 
 	// accounts should have the initial value because they were not updated yet
 	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10000}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":0}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"OwnerID\":\"\",\"Tokens\":0}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// Check if Tx was successful
@@ -690,19 +690,19 @@ func Test_updateAccountTokens(t *testing.T) {
 
 	// Update the amount of tokens on account 1
 	args = [][]byte{[]byte("updateAccountTokens"), []byte("1")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":9900}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":9900}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	// Update the amount of tokens on account 2
 	args = [][]byte{[]byte("updateAccountTokens"), []byte("2")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":100}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"OwnerID\":\"\",\"Tokens\":100}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// accounts should have the updated value
 	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":9900}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":9900}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":100}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"OwnerID\":\"\",\"Tokens\":100}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// It should fail with empty string arg
@@ -735,10 +735,10 @@ func Test_getAccountTokens(t *testing.T) {
 
 	// accounts should have the initial value because they were not updated yet
 	args = [][]byte{[]byte("getAccountByID"), []byte("1")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"Tokens\":10000}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"1\",\"Name\":\"Init_Account\",\"OwnerID\":\"\",\"Tokens\":10000}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 	args = [][]byte{[]byte("getAccountByID"), []byte("2")}
-	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"Tokens\":0}"
+	expectedPayload = "{\"RecordType\":\"ACCOUNT\",\"AccountID\":\"2\",\"Name\":\"acc_name\",\"OwnerID\":\"\",\"Tokens\":0}"
 	checkInvokeResponse(t, stub, args, expectedPayload)
 
 	// Check if Tx was successful

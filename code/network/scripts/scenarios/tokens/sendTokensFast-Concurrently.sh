@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Parse commandline args
+while getopts "b:e:" opt; do
+  case "$opt" in
+    b)  BEGIN_AT=$OPTARG
+    ;;
+    e)  END_AT=$OPTARG
+    ;;
+  esac
+done
+
 verifyResult () {
 	if [ $1 -ne 0 ] ; then
 		echo "!!!!!!!!!!!!!!! "$2" !!!!!!!!!!!!!!!!"
@@ -17,7 +27,7 @@ chaincodeInvoke () {
 
 PAYLOAD='{"Args":["sendTokensFast", "1", "2", "1", "false"]}'
 
-for (( i = 0; i < 100; ++i ))
+for (( i = BEGIN_AT; i < END_AT; ++i ))
 do
 	for (( j = 0; j < 10; ++j ))
 	do

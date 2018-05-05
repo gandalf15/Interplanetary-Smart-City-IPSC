@@ -1,8 +1,19 @@
 #!/bin/bash
 
+
+# Parse commandline args
+while getopts "b:e:" opt; do
+  case "$opt" in
+    b)  BEGIN_AT=$OPTARG
+    ;;
+    e)  END_AT=$OPTARG
+    ;;
+  esac
+done
+
 ENDING='", "marcel", "1", "2"]}'
 
-for (( i = 0; i < 100; ++i )); do
+for (( i = BEGIN_AT; i < END_AT; ++i )); do
     for (( j = 0; j < 10; ++j )); do
         PAYLOAD='{"Args":["createDataEntryAd", "throughput", "test throughput data", "???", "Celsius", "'
         PAYLOAD=$PAYLOAD$i$j

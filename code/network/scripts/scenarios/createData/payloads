@@ -1,0 +1,4 @@
+ENDING='", "1"]}'
+PAYLOAD='{"Args":["1", "1", "1", "1", "1", "'
+PAYLOAD=$PAYLOAD$i$j
+PAYLOAD=$PAYLOAD$ENDING

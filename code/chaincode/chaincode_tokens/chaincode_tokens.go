@@ -21,11 +21,12 @@ type Chaincode struct {
 type Account struct {
 	RecordType string // RecordType is used to distinguish the various types of objects in state database
 	AccountID  string // unique id of the account
-	Name       string // name of the account holder
+	Name       string // name of the account (holder)
+	OwnerID    string // Cryptographic account holder identity
 	Tokens     int64  // amount of tokens (money)
 }
 
-// limitTokens - limits the highest number of tokens that can be transfered
+// LimitTokens - limits the highest number of tokens that can be transfered
 // from account without immediate verification of available tokens.
 // This provides high throughput required for IoT data an many transactions per sec
 var LimitTokens int64 = 1
@@ -69,10 +70,16 @@ func (cc *Chaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 		return shim.Error("Expecting positiv integer or zero as number of tokens to init.")
 	}
 
+	// GetCreator returns the identity object of the chaincode invocation's submitter
+	creatorID, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("Failed to get creator ID." + err.Error())
+	}
+
 	// Create account objects in array
 	accounts := make([]*Account, noOfAccounts)
 	for i := 0; i < noOfAccounts; i++ {
-		accounts[i] = &Account{"ACCOUNT", strconv.Itoa(i + 1), "Init_Account", tokens}
+		accounts[i] = &Account{"ACCOUNT", strconv.Itoa(i + 1), "Init_Account", string(creatorID), tokens}
 	}
 
 	// marshal each account object and save to the blockchain
@@ -196,9 +203,15 @@ func (cc *Chaincode) createAccount(stub shim.ChaincodeStubInterface, args []stri
 		return shim.Error("This account already exists: " + accountID)
 	}
 
+	// GetCreator returns the identity object of the chaincode invocation's submitter
+	creatorID, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("Failed to get creator ID." + err.Error())
+	}
+
 	// Create Account object and marshal to JSON
 	recordType := "ACCOUNT"
-	accountEntry := &Account{recordType, accountID, name, 0}
+	accountEntry := &Account{recordType, accountID, name, string(creatorID), 0}
 	accountEntryJSONasBytes, err := json.Marshal(accountEntry)
 	if err != nil {
 		return shim.Error(err.Error())
@@ -508,6 +521,29 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
 
+	// GetCreator returns the identity object of the chaincode invocation's submitter
+	creatorID, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("Failed to get creator ID." + err.Error())
+	}
+
+	// Get the account
+	fromAccountAsBytes, err := stub.GetState(fromAccountID)
+	if err != nil {
+		return shim.Error(err.Error())
+	} else if fromAccountAsBytes == nil {
+		return shim.Error(err.Error())
+	}
+	var account Account
+	err = json.Unmarshal(fromAccountAsBytes, &account)
+	if err != nil {
+		return shim.Error("Some error: " + err.Error())
+	}
+	// Check if the creator of proposal is the account owner
+	if account.OwnerID != string(creatorID) {
+		return shim.Error("CreatorID is not the same as Account's OwnerID.")
+	}
+
 	// Index txID and sender accounts ID
 	// this is required for quick lookup and transaction aggregation.
 	txID := stub.GetTxID()
@@ -598,8 +634,13 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
 
-	// If account retrieval from state does not fail then accounts exist. Just check
-	// No need to unmarshal
+	// GetCreator returns the identity object of the chaincode invocation's submitter
+	creatorID, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("Failed to get creator ID." + err.Error())
+	}
+
+	// If account retrieval from state does not fail then accounts exist.
 	fromAccountAsBytes, err := stub.GetState(fromAccountID)
 	if err != nil {
 		return shim.Error(err.Error())
@@ -611,6 +652,16 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error(err.Error())
 	} else if toAccountAsBytes == nil {
 		return shim.Error(err.Error())
+	}
+	// Unmarshal the account object
+	var account Account
+	err = json.Unmarshal(fromAccountAsBytes, &account)
+	if err != nil {
+		return shim.Error("Some error: " + err.Error())
+	}
+	// Check if the creator of proposal is the account owner
+	if account.OwnerID != string(creatorID) {
+		return shim.Error("CreatorID is not the same as Account's OwnerID.")
 	}
 
 	// Get the latest state of tokens for sender's account
