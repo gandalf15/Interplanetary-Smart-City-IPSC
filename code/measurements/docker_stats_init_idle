@@ -1,0 +1,12 @@
+CONTAINER ID        NAME                                             CPU %               MEM USAGE / LIMIT     MEM %               NET I/O             BLOCK I/O           PIDS
+0a7581be96f6        dev-peer0.city2.zak.codes-chaincode_tokens-1.0   0.00%               3.418MiB / 2GiB       0.17%               7.58kB / 3.32kB     0B / 0B             5
+44af020df8f8        dev-peer0.city1.zak.codes-chaincode_tokens-1.0   0.00%               3.898MiB / 2GiB       0.19%               18.9kB / 11.3kB     0B / 0B             7
+90fae1247750        dev-peer0.city1.zak.codes-chaincode_ad-1.0       0.00%               3.664MiB / 2GiB       0.18%               9.28kB / 2.83kB     0B / 0B             6
+72fdfc3ca4e1        dev-peer0.city1.zak.codes-chaincode_data-1.0     0.00%               3.512MiB / 2GiB       0.17%               9.26kB / 2.8kB      0B / 0B             6
+9cf154d8dd01        cli                                              0.00%               4.996MiB / 7.718GiB   0.06%               173kB / 314kB       442kB / 729kB       2
+6415767969b3        orderer.zak.codes                                0.00%               13.51MiB / 7.718GiB   0.17%               127kB / 340kB       0B / 754kB          9
+99f943298da5        peer0.city1.zak.codes                            8.08%               71.86MiB / 7.718GiB   0.91%               1.1MB / 980kB       0B / 901kB          10
+4976faa11678        peer0.city2.zak.codes                            2.04%               67.12MiB / 7.718GiB   0.85%               817kB / 697kB       0B / 680kB          10
+4f402862f379        peer1.city1.zak.codes                            2.38%               30.91MiB / 7.718GiB   0.39%               865kB / 803kB       0B / 901kB          10
+84bfe603dd11        peer1.city2.zak.codes                            2.92%               29.71MiB / 7.718GiB   0.38%               721kB / 648kB       0B / 680kB          10
+
