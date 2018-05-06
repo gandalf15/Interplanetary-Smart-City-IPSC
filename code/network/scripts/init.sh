@@ -242,20 +242,21 @@ POLICY="AND ('City1MSP.member')"
 instantiateChaincode 0 chaincode_data
 
 #Instantiate chaincode_ad on Peer2/City2
-echo "--> Instantiating chaincode_ad on Peer2/City2..."
+echo "--> Instantiating chaincode_ad on Peer0/City1..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
 PAYLOAD='{"Args":["1"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
-instantiateChaincode 2 chaincode_ad
+instantiateChaincode 0 chaincode_ad
 
-#Instantiate chaincode_tokens on Peer2/City2
-echo "--> Instantiating chaincode_tokens on Peer2/City2..."
+#Instantiate chaincode_tokens on Peer0/City1
+echo "--> Instantiating chaincode_tokens on Peer0/City1..."
 echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
 PAYLOAD='{"Args":["1000000"]}'
 POLICY="OR ('City1MSP.member','City2MSP.member')"
-instantiateChaincode 2 chaincode_tokens
+# switch to peer 0 on City 1 so it owns account 1
+instantiateChaincode 0 chaincode_tokens
 
 # Create global variable RETURNED_PAYLOAD that is used in chaincodeInvoke function
 RETURNED_PAYLOAD=""
@@ -276,11 +277,35 @@ PAYLOAD='{"Args":["createDataEntryAd", "1", "test data", "50", "Celsius", "20180
 chaincodeInvoke 0 chaincode_ad
 
 # Invoke on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction createAccount on Peer0/City1 on chaincode_tokens"
+echo "--> Sending invoke transaction createAccount on Peer2/City2 on chaincode_tokens"
 echo
-sleep 3
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["createAccount", "2", "Test_Account"]}'
+PAYLOAD='{"Args":["createAccount", "2", "Test_Account_City2"]}'
+# switch to peer 2 on City2 so it owns the account
+sleep 3
+chaincodeInvoke 2 chaincode_tokens
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
+echo
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "50000", "false"]}'
+# switch to peer 0 on City1 because that is the owner of the account
+sleep 3
+chaincodeInvoke 0 chaincode_tokens
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction updateAccountTokens on Peer0/City1 on chaincode_tokens"
+echo
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["updateAccountTokens", "1"]}'
+chaincodeInvoke 0 chaincode_tokens
+
+# Invoke on chaincode_tokens on Peer0/City1
+echo "--> Sending invoke transaction updateAccountTokens on Peer0/City1 on chaincode_tokens"
+echo
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["updateAccountTokens", "2"]}'
 chaincodeInvoke 0 chaincode_tokens
 
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_ad -c '{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", "txID"]}' -C channel2

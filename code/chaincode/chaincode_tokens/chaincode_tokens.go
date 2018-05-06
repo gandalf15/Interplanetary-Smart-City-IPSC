@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"strconv"
 	"time"
+	//"crypto/x509"
+	//"encoding/pem"
 
+	//"github.com/golang/protobuf/proto"
+	//"github.com/hyperledger/fabric/protos/msp"
 	"github.com/hyperledger/fabric/core/chaincode/shim"
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
@@ -521,11 +525,29 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
 
+	/* TODO account holder verification
+
 	// GetCreator returns the identity object of the chaincode invocation's submitter
-	creatorID, err := stub.GetCreator()
+	creatorIDAsBytes, err := stub.GetCreator()
 	if err != nil {
 		return shim.Error("Failed to get creator ID." + err.Error())
 	}
+
+	sID := &msp.SerializedIdentity{}
+    err = proto.Unmarshal(creatorIDAsBytes, sID)
+    if err != nil {
+        return shim.Error(fmt.Sprintf("Could not deserialize a SerializedIdentity, err %s", err))
+    }
+
+    block, _ := pem.Decode(sID.IdBytes)
+    if block == nil {
+        return shim.Error(fmt.Sprintf("Failed to decode PEM structure"))
+	}
+
+    cert, err := x509.ParseCertificate(block.Bytes)
+    if err != nil {
+        return shim.Error(fmt.Sprintf("Unable to parse certificate %s", err))
+    }
 
 	// Get the account
 	fromAccountAsBytes, err := stub.GetState(fromAccountID)
@@ -539,10 +561,8 @@ func (cc *Chaincode) sendTokensFast(stub shim.ChaincodeStubInterface, args []str
 	if err != nil {
 		return shim.Error("Some error: " + err.Error())
 	}
-	// Check if the creator of proposal is the account owner
-	if account.OwnerID != string(creatorID) {
-		return shim.Error("CreatorID is not the same as Account's OwnerID.")
-	}
+	*/
+	
 
 	// Index txID and sender accounts ID
 	// this is required for quick lookup and transaction aggregation.
@@ -634,11 +654,13 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 		return shim.Error("Expecting boolean value. If this transfer is for data purchase or not.")
 	}
 
+	/* TODO account holder verification
 	// GetCreator returns the identity object of the chaincode invocation's submitter
 	creatorID, err := stub.GetCreator()
 	if err != nil {
 		return shim.Error("Failed to get creator ID." + err.Error())
 	}
+	*/
 
 	// If account retrieval from state does not fail then accounts exist.
 	fromAccountAsBytes, err := stub.GetState(fromAccountID)
@@ -659,10 +681,44 @@ func (cc *Chaincode) sendTokensSafe(stub shim.ChaincodeStubInterface, args []str
 	if err != nil {
 		return shim.Error("Some error: " + err.Error())
 	}
-	// Check if the creator of proposal is the account owner
-	if account.OwnerID != string(creatorID) {
-		return shim.Error("CreatorID is not the same as Account's OwnerID.")
+
+	/* TODO account holder verification
+
+	// GetCreator returns the identity object of the chaincode invocation's submitter
+	creatorIDAsBytes, err := stub.GetCreator()
+	if err != nil {
+		return shim.Error("Failed to get creator ID." + err.Error())
 	}
+
+	sID := &msp.SerializedIdentity{}
+    err = proto.Unmarshal(creatorIDAsBytes, sID)
+    if err != nil {
+        return shim.Error(fmt.Sprintf("Could not deserialize a SerializedIdentity, err %s", err))
+    }
+
+    block, _ := pem.Decode(sID.IdBytes)
+    if block == nil {
+        return shim.Error(fmt.Sprintf("Failed to decode PEM structure"))
+	}
+
+    cert, err := x509.ParseCertificate(block.Bytes)
+    if err != nil {
+        return shim.Error(fmt.Sprintf("Unable to parse certificate %s", err))
+    }
+
+	// Get the account
+	fromAccountAsBytes, err := stub.GetState(fromAccountID)
+	if err != nil {
+		return shim.Error(err.Error())
+	} else if fromAccountAsBytes == nil {
+		return shim.Error(err.Error())
+	}
+	var account Account
+	err = json.Unmarshal(fromAccountAsBytes, &account)
+	if err != nil {
+		return shim.Error("Some error: " + err.Error())
+	}
+	*/
 
 	// Get the latest state of tokens for sender's account
 	argsTok := []string{fromAccountID}
