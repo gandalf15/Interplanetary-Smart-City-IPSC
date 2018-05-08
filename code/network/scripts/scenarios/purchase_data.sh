@@ -162,7 +162,7 @@ echo
 CHANNEL_NAME="${CHANNEL_NAME_BASE}2"
 PAYLOAD='{"Args":["createDataEntryAd", "2", "test data", "???", "Celsius", "'
 PAYLOAD=$PAYLOAD$CREATION_TIME
-ENDING='", "marcel", "10", "2"]}'
+ENDING='", "marcel", "10", "1"]}'
 PAYLOAD=$PAYLOAD$ENDING
 chaincodeInvoke 0 chaincode_ad
 
@@ -172,37 +172,37 @@ PAYLOAD='{"Args":["getAccountTokens", "1"]}'
 chaincodeQuery 0 chaincode_tokens
 ACC1_TOKENS=$RETURNED_QUERY
 
-# Get the current amount of tokens on account 1
+# Get the current amount of tokens on account 2
 PAYLOAD='{"Args":["getAccountTokens", "2"]}'
 chaincodeQuery 0 chaincode_tokens
 ACC2_TOKENS=$RETURNED_QUERY
 
-# Invoke on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction sendTokensSafe on Peer0/City1 on chaincode_tokens"
-echo "--> Sending 10 tokens for data purchase from account 1 to account 2 on blockchain 3 <--"
+# Invoke on chaincode_tokens on Peer2/City2
+echo "--> Sending invoke transaction sendTokensSafe on Peer2/City2 on chaincode_tokens"
+echo "--> Sending 10 tokens for data purchase from account 2 to account 1 on blockchain 3 <--"
 echo
 sleep $DELAY
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["sendTokensSafe", "1", "2", "10", "true"]}'
-chaincodeInvoke 0 chaincode_tokens
+PAYLOAD='{"Args":["sendTokensSafe", "2", "1", "10", "true"]}'
+chaincodeInvoke 2 chaincode_tokens
 
 # Query on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
-echo "--> Even though tokens were sent to account 2, they are not available until data retrieved <--"
-echo
-sleep $DELAY # required sleep to wait for previous data to commit and being available
-CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["getAccountTokens", "2"]}'
-chaincodeQueryCheck 0 chaincode_tokens $ACC2_TOKENS
-
-# Query on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
-echo "--> Check if tokens were subtracted from account 1 <--"
+echo "--> Sending invoke transaction getAccountTokens on Peer0/City1 on chaincode_tokens"
+echo "--> Even though tokens were sent to account 1, they are not available until data retrieved <--"
 echo
 sleep $DELAY # required sleep to wait for previous data to commit and being available
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
 PAYLOAD='{"Args":["getAccountTokens", "1"]}'
-chaincodeQueryCheck 0 chaincode_tokens $(( $ACC1_TOKENS - 10 ))
+chaincodeQueryCheck 0 chaincode_tokens $ACC1_TOKENS
+
+# Query on chaincode_tokens on Peer2/City2
+echo "--> Sending invoke transaction changePendingTx on Peer2/City2 on chaincode_tokens"
+echo "--> Check if tokens were subtracted from account 2 <--"
+echo
+sleep $DELAY # required sleep to wait for previous data to commit and being available
+CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
+PAYLOAD='{"Args":["getAccountTokens", "2"]}'
+chaincodeQueryCheck 2 chaincode_tokens $(( $ACC2_TOKENS - 10 ))
 
 # Invoke on chaincode_ad on Peer0/City1
 echo "--> Sending invoke transaction revealPaidData on Peer0/City1 on chaincode_ad"
@@ -219,8 +219,8 @@ PAYLOAD=$PAYLOAD$MIDDLE$RETURNED_PAYLOAD
 PAYLOAD="${PAYLOAD}]}"
 chaincodeInvoke 0 chaincode_ad
 
-# Invoke on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+# Invoke on chaincode_tokens on Peer2/City2
+echo "--> Sending invoke transaction changePendingTx on Peer2/City2 on chaincode_tokens"
 echo "--> Now data entry has revealed value and Blocked tokens can be changed to available <--"
 echo
 sleep $DELAY # required sleep to wait for previous data to commit and being available
@@ -228,16 +228,16 @@ CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
 PAYLOAD='{"Args":["changePendingTx", "channel2", "chaincode_ad", '
 PAYLOAD=$PAYLOAD$TXID
 PAYLOAD="${PAYLOAD}]}"
-chaincodeInvoke 0 chaincode_tokens
+chaincodeInvoke 2 chaincode_tokens
 
 # Query on chaincode_tokens on Peer0/City1
-echo "--> Sending invoke transaction changePendingTx on Peer0/City1 on chaincode_tokens"
+echo "--> Sending invoke transaction getAccountTokens on Peer0/City1 on chaincode_tokens"
 echo "--> Check if tokens are now available on account 2 <--"
 echo
 sleep $DELAY # required sleep to wait for previous data to commit and being available
 CHANNEL_NAME="${CHANNEL_NAME_BASE}3"
-PAYLOAD='{"Args":["getAccountTokens", "2"]}'
-chaincodeQueryCheck 0 chaincode_tokens $(( $ACC2_TOKENS + 10 ))
+PAYLOAD='{"Args":["getAccountTokens", "1"]}'
+chaincodeQueryCheck 0 chaincode_tokens $(( $ACC1_TOKENS + 10 ))
 
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_ad -c '{"Args":["revealPaidData", "channel1", "chaincode_data", "2", "20180321160000", "channel3", "chaincode_tokens", "txID"]}' -C channel2
 # peer chaincode invoke --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/zak.codes/orderers/orderer.zak.codes/msp/tlscacerts/tlsca.zak.codes-cert.pem -n chaincode_tokens -c '{"Args":["getAccountTokens", "1"]}' -C channel3
