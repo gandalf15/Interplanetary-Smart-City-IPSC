@@ -507,28 +507,6 @@ func Test_sendTokensSafe(t *testing.T) {
 	*/
 }
 
-/*
-// This test cannot be used because of the limitations of MockChaincode
-func Test_getHistoryForAccount(t *testing.T) {
-	cc := new(Chaincode)
-	stub := shim.NewMockStub("tokens_init_test", cc)
-
-	// Init 1 account with 10 000 tokens
-	checkInit(t, stub, [][]byte{[]byte("10000")})
-
-	// create another acc without tokens
-	args := [][]byte{[]byte("createAccount"), []byte("2"), []byte("acc_name")}
-	expectedPayload := "Account created"
-	checkInvokeResponse(t, stub, args, expectedPayload)
-	// It should transfer tokens
-	args := [][]byte{[]byte("transferTokens"), []byte("1"), []byte("2"), []byte("100")}
-	checkInvoke(t, stub, args)
-
-	args := [][]byte{[]byte("getAccHistory"), []byte("1")}
-	checkInvoke(t, stub, args)
-}
-*/
-
 func Test_getTxDetails(t *testing.T) {
 	cc := new(Chaincode)
 	stub := shim.NewMockStub("tokens_init_test", cc)
