@@ -1,0 +1,499 @@
+%!PS-Adobe-3.0
+%%Title: extract_usr_plus_sys_time.py
+%%For: marcel
+%%Creator: VIM - Vi IMproved 8.0 (2016 Sep 12)
+%%CreationDate: Fri May 11 10:32:03 2018
+%%DocumentData: Clean8Bit
+%%Orientation: Portrait
+%%Pages: (atend)
+%%PageOrder: Ascend
+%%BoundingBox: 59 49 564 800
+%%DocumentMedia: A4 595 842 0 () ()
+%%DocumentNeededResources: font Courier
+%%+ font Courier-Bold
+%%+ font Courier-Oblique
+%%+ font Courier-BoldOblique
+%%DocumentSuppliedResources: procset VIM-Prolog 1.4 1
+%%+ encoding VIM-latin1 1.0 0
+%%Requirements: duplex collate color
+%%EndComments
+%%BeginDefaults
+%%PageResources: font Courier
+%%+ font Courier-Bold
+%%+ font Courier-Oblique
+%%+ font Courier-BoldOblique
+%%PageMedia: A4
+%%EndDefaults
+%%BeginProlog
+%%BeginResource: procset VIM-Prolog
+%%BeginDocument: /usr/share/vim/vim80/print/prolog.ps
+%!PS-Adobe-3.0 Resource-ProcSet
+%%Title: VIM-Prolog
+%%Version: 1.4 1
+%%EndComments
+% Editing of this file is NOT RECOMMENDED.  You run a very good risk of causing
+% all PostScript printing from VIM failing if you do.  PostScript is not called
+% a write-only language for nothing!
+/packedarray where not{userdict begin/setpacking/pop load def/currentpacking
+false def end}{pop}ifelse/CP currentpacking def true setpacking
+/bd{bind def}bind def/ld{load def}bd/ed{exch def}bd/d/def ld
+/db{dict begin}bd/cde{currentdict end}bd
+/T true d/F false d
+/SO null d/sv{/SO save d}bd/re{SO restore}bd
+/L2 systemdict/languagelevel 2 copy known{get exec}{pop pop 1}ifelse 2 ge d
+/m/moveto ld/s/show ld /ms{m s}bd /g/setgray ld/r/setrgbcolor ld/sp{showpage}bd
+/gs/gsave ld/gr/grestore ld/cp/currentpoint ld
+/ul{gs UW setlinewidth cp UO add 2 copy newpath m 3 1 roll add exch lineto
+stroke gr}bd
+/bg{gs r cp BO add 4 -2 roll rectfill gr}bd
+/sl{90 rotate 0 exch translate}bd
+L2{
+/sspd{mark exch{setpagedevice}stopped cleartomark}bd
+/nc{1 db/NumCopies ed cde sspd}bd
+/sps{3 db/Orientation ed[3 1 roll]/PageSize ed/ImagingBBox null d cde sspd}bd
+/dt{2 db/Tumble ed/Duplex ed cde sspd}bd
+/c{1 db/Collate ed cde sspd}bd
+}{
+/nc{/#copies ed}bd
+/sps{statusdict/setpage get exec}bd
+/dt{statusdict/settumble 2 copy known{get exec}{pop pop pop}ifelse
+statusdict/setduplexmode 2 copy known{get exec}{pop pop pop}ifelse}bd
+/c{pop}bd
+}ifelse
+/ffs{findfont exch scalefont d}bd/sf{setfont}bd
+/ref{1 db findfont dup maxlength dict/NFD ed{exch dup/FID ne{exch NFD 3 1 roll
+put}{pop pop}ifelse}forall/Encoding findresource dup length 256 eq{NFD/Encoding
+3 -1 roll put}{pop}ifelse NFD dup/FontType get 3 ne{/CharStrings}{/CharProcs}
+ifelse 2 copy known{2 copy get dup maxlength dict copy[/questiondown/space]{2
+copy known{2 copy get 2 index/.notdef 3 -1 roll put pop exit}if pop}forall put
+}{pop pop}ifelse dup NFD/FontName 3 -1 roll put NFD definefont pop end}bd
+CP setpacking
+(\004)cvn{}bd
+% vim:ff=unix:
+%%EOF
+%%EndDocument
+%%EndResource
+%%BeginResource: encoding VIM-latin1
+%%BeginDocument: /usr/share/vim/vim80/print/latin1.ps
+%!PS-Adobe-3.0 Resource-Encoding
+%%Title: VIM-latin1
+%%Version: 1.0 0
+%%EndComments
+/VIM-latin1[
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclam /quotedbl /numbersign /dollar /percent /ampersand /quotesingle
+/parenleft /parenright /asterisk /plus /comma /minus /period /slash
+/zero /one /two /three /four /five /six /seven
+/eight /nine /colon /semicolon /less /equal /greater /question
+/at /A /B /C /D /E /F /G
+/H /I /J /K /L /M /N /O
+/P /Q /R /S /T /U /V /W
+/X /Y /Z /bracketleft /backslash /bracketright /asciicircum /underscore
+/grave /a /b /c /d /e /f /g
+/h /i /j /k /l /m /n /o
+/p /q /r /s /t /u /v /w
+/x /y /z /braceleft /bar /braceright /asciitilde /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef /.notdef
+/space /exclamdown /cent /sterling /currency /yen /brokenbar /section
+/dieresis /copyright /ordfeminine /guillemotleft /logicalnot /hyphen /registered /macron
+/degree /plusminus /twosuperior /threesuperior /acute /mu /paragraph /periodcentered
+/cedilla /onesuperior /ordmasculine /guillemotright /onequarter /onehalf /threequarters /questiondown
+/Agrave /Aacute /Acircumflex /Atilde /Adieresis /Aring /AE /Ccedilla
+/Egrave /Eacute /Ecircumflex /Edieresis /Igrave /Iacute /Icircumflex /Idieresis
+/Eth /Ntilde /Ograve /Oacute /Ocircumflex /Otilde /Odieresis /multiply
+/Oslash /Ugrave /Uacute /Ucircumflex /Udieresis /Yacute /Thorn /germandbls
+/agrave /aacute /acircumflex /atilde /adieresis /aring /ae /ccedilla
+/egrave /eacute /ecircumflex /edieresis /igrave /iacute /icircumflex /idieresis
+/eth /ntilde /ograve /oacute /ocircumflex /otilde /odieresis /divide
+/oslash /ugrave /uacute /ucircumflex /udieresis /yacute /thorn /ydieresis]
+/Encoding defineresource pop
+% vim:ff=unix:
+%%EOF
+%%EndDocument
+%%EndResource
+%%EndProlog
+%%BeginSetup
+595 842 0 sps
+1 nc
+T F dt
+T c
+%%IncludeResource: font Courier
+/_F0 /VIM-latin1 /Courier ref
+/F0 10 /_F0 ffs
+%%IncludeResource: font Courier-Bold
+/_F1 /VIM-latin1 /Courier-Bold ref
+/F1 10 /_F1 ffs
+%%IncludeResource: font Courier-Oblique
+/_F2 /VIM-latin1 /Courier-Oblique ref
+/F2 10 /_F2 ffs
+%%IncludeResource: font Courier-BoldOblique
+/_F3 /VIM-latin1 /Courier-BoldOblique ref
+/F3 10 /_F3 ffs
+/UO -1 d
+/UW 0.5 d
+/BO -2.5 d
+%%EndSetup
+%%Page: 1 1
+%%BeginPageSetup
+sv
+0 g
+F0 sf
+%%EndPageSetup
+F1 sf
+(extract_usr_plus_sys_time.py                                                  Page 1)59.5 792.4 ms
+F0 sf
+0.498 0.498 0 r
+(#!/usr/bin/python3)59.5 772.4 ms
+0 0 0.376 r
+(import)59.5 752.4 ms
+0 g
+( sys)s
+0 0 0.376 r
+(import)59.5 742.4 ms
+0 g
+( os)s
+0 0.498 0.498 r
+(class)59.5 722.4 ms
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(LinuxTimeStat)s
+F0 sf
+0 g
+(:)s
+(    )59.5 712.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(__init__)s
+F0 sf
+0 g
+(\(self, path\):)s
+(        self._filePath = path)59.5 702.4 ms
+(        self._realTime = [])59.5 692.4 ms
+(        self._userTime = [])59.5 682.4 ms
+(        self._sysTime = [])59.5 672.4 ms
+(        self._userPlusSys = [])59.5 662.4 ms
+(        self._parseFile\(\))59.5 652.4 ms
+(    )59.5 632.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(getRealTime)s
+F0 sf
+0 g
+(\(self\):)s
+(        )59.5 622.4 ms
+0 0.498 0.498 r
+(return)s
+0 g
+( self._realTime)s
+(    )59.5 602.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(getUserTime)s
+F0 sf
+0 g
+(\(self\):)s
+(        )59.5 592.4 ms
+0 0.498 0.498 r
+(return)s
+0 g
+( self._userTime)s
+(    )59.5 572.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(getSysTime)s
+F0 sf
+0 g
+(\(self\):)s
+(        )59.5 562.4 ms
+0 0.498 0.498 r
+(return)s
+0 g
+( self._sysTime)s
+(    )59.5 542.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(getUserPlusSysTime)s
+F0 sf
+0 g
+(\(self\):)s
+(        )59.5 532.4 ms
+0 0.498 0.498 r
+(return)s
+0 g
+( self._userPlusSys)s
+(    )59.5 512.4 ms
+0 0.498 0.498 r
+(def)s
+0 g
+( )s
+F1 sf
+0.498 0.498 0 r
+(_parseFile)s
+F0 sf
+0 g
+(\(self\):)s
+(        f = )59.5 502.4 ms
+F1 sf
+0.498 0.498 0 r
+(open)s
+F0 sf
+0 g
+(\(self._filePath, )s
+0.498 0.125 0.498 r
+("r")s
+0 g
+(\))s
+(        prevUserTime = )59.5 492.4 ms
+0.498 0.125 0.498 r
+(0)s
+0 g
+(        )59.5 482.4 ms
+0 0.498 0.498 r
+(for)s
+0 g
+( line )s
+0 0.498 0.498 r
+(in)s
+0 g
+( f:)s
+(            )59.5 472.4 ms
+0 0.498 0.498 r
+(if)s
+0 g
+( \(line != )s
+0.498 0.125 0.498 r
+(")s
+0 g
+(\\n)s
+0.498 0.125 0.498 r
+(")s
+0 g
+(\):)s
+(                arr = line.split\(\))59.5 462.4 ms
+(                arr2 = arr[)59.5 452.4 ms
+0.498 0.125 0.498 r
+(1)s
+0 g
+(].split\()s
+0.498 0.125 0.498 r
+("m")s
+0 g
+(\))s
+(                strMinutes = arr2[)59.5 442.4 ms
+0.498 0.125 0.498 r
+(0)s
+0 g
+(])s
+(                minutes = )59.5 432.4 ms
+F1 sf
+0.498 0.498 0 r
+(int)s
+F0 sf
+0 g
+(\(strMinutes\))s
+(                strSeconds = arr2[)59.5 422.4 ms
+0.498 0.125 0.498 r
+(1)s
+0 g
+(].replace\()s
+0.498 0.125 0.498 r
+("s")s
+0 g
+(,)s
+0.498 0.125 0.498 r
+("")s
+0 g
+(\))s
+(                seconds = )59.5 412.4 ms
+F1 sf
+0.498 0.498 0 r
+(float)s
+F0 sf
+0 g
+(\(strSeconds\))s
+(                )59.5 402.4 ms
+0 0.498 0.498 r
+(if)s
+0 g
+( \(arr[)s
+0.498 0.125 0.498 r
+(0)s
+0 g
+(] == )s
+0.498 0.125 0.498 r
+("real")s
+0 g
+(\):)s
+(                    self._realTime.append\(\(minutes*)59.5 392.4 ms
+0.498 0.125 0.498 r
+(60)s
+0 g
+( + seconds\)\))s
+(                )59.5 382.4 ms
+0 0.498 0.498 r
+(elif)s
+0 g
+( \(arr[)s
+0.498 0.125 0.498 r
+(0)s
+0 g
+(] == )s
+0.498 0.125 0.498 r
+("user")s
+0 g
+(\):)s
+(                    prevUserTime = minutes*)59.5 372.4 ms
+0.498 0.125 0.498 r
+(60)s
+0 g
+( + seconds)s
+(                    self._userTime.append\(prevUserTime\))59.5 362.4 ms
+(                )59.5 352.4 ms
+0 0.498 0.498 r
+(elif)s
+0 g
+( \(arr[)s
+0.498 0.125 0.498 r
+(0)s
+0 g
+(] == )s
+0.498 0.125 0.498 r
+("sys")s
+0 g
+(\):)s
+(                    sysTime = minutes*)59.5 342.4 ms
+0.498 0.125 0.498 r
+(60)s
+0 g
+( + seconds)s
+(                    self._sysTime.append\(sysTime\))59.5 332.4 ms
+(                    self._userPlusSys.append\(prevUserTime + sysTime\))59.5 322.4 ms
+(                )59.5 312.4 ms
+0 0.498 0.498 r
+(else)s
+0 g
+(:)s
+(                    )59.5 302.4 ms
+F1 sf
+0.498 0.498 0 r
+(print)s
+F0 sf
+0 g
+(\(line\))s
+(        )59.5 282.4 ms
+0 0.498 0.498 r
+(return)s
+0 g
+(arrTimeStat = [])59.5 262.4 ms
+(directory = )59.5 252.4 ms
+0.498 0.125 0.498 r
+("UserPlusSysTimes")s
+0 0.498 0.498 r
+(if)59.5 242.4 ms
+0 g
+( )s
+0 0.498 0.498 r
+(not)s
+0 g
+( os.path.exists\(directory\):)s
+(    os.makedirs\(directory\))59.5 232.4 ms
+0 0.498 0.498 r
+(for)59.5 222.4 ms
+0 g
+( path )s
+0 0.498 0.498 r
+(in)s
+0 g
+( sys.argv[)s
+0.498 0.125 0.498 r
+(1)s
+0 g
+(:]:)s
+(    )59.5 212.4 ms
+F1 sf
+0.498 0.498 0 r
+(print)s
+F0 sf
+0 g
+(\(path\))s
+(    arrTimeStat.append\(LinuxTimeStat\(path\)\))59.5 202.4 ms
+(    newFileName = directory + )59.5 192.4 ms
+0.498 0.125 0.498 r
+("/UserSys_")s
+0 g
+( + path.split\()s
+0.498 0.125 0.498 r
+("_")s
+0 g
+(\)[-)s
+0.498 0.125 0.498 r
+(1)s
+0 g
+(])s
+(    f = )59.5 182.4 ms
+F1 sf
+0.498 0.498 0 r
+(open)s
+F0 sf
+0 g
+(\(newFileName,)s
+0.498 0.125 0.498 r
+("w")s
+0 g
+(\))s
+(    strArr = )59.5 172.4 ms
+F1 sf
+0.498 0.498 0 r
+(str)s
+F0 sf
+0 g
+(\(arrTimeStat[-)s
+0.498 0.125 0.498 r
+(1)s
+0 g
+(].getUserPlusSysTime\(\)\))s
+(    strArr = strArr[)59.5 162.4 ms
+0.498 0.125 0.498 r
+(1)s
+0 g
+(:])s
+(    strArr = strArr[:-)59.5 152.4 ms
+0.498 0.125 0.498 r
+(1)s
+0 g
+(])s
+(    f.write\(strArr\))59.5 142.4 ms
+re sp
+%%PageTrailer
+%%Trailer
+%%Pages: 1
+%%EOF
+
